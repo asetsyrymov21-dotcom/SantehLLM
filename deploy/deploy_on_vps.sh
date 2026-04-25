@@ -19,6 +19,11 @@ if [ ! -f ".env" ]; then
 fi
 
 docker compose -f "$COMPOSE_FILE" build
+docker compose -f "$COMPOSE_FILE" up -d db
+docker compose -f "$COMPOSE_FILE" exec -T db sh -c \
+  'until pg_isready -U "${POSTGRES_USER:-postgres}" >/dev/null 2>&1; do sleep 1; done'
+docker compose -f "$COMPOSE_FILE" exec -T db sh -c \
+  'createdb -U "${POSTGRES_USER:-postgres}" "${POSTGRES_DB:-santeh}" 2>/dev/null || true'
 docker compose -f "$COMPOSE_FILE" run --rm migrate
 docker compose -f "$COMPOSE_FILE" up -d --remove-orphans
 docker compose -f "$COMPOSE_FILE" ps
