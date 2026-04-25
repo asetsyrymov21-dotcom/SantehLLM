@@ -1,3 +1,7 @@
+from pathlib import Path
+
+import pytest
+
 from app.services.pdf.product_cards import _extract_title_candidates
 from app.services.pdf.product_cards import extract_product_cards_from_page
 from app.services.pdf.extractor import extract_catalog_grids_from_page
@@ -27,8 +31,14 @@ def test_title_candidates_trim_finish_garbage_after_product_name():
 
 
 def _titles_by_sku(page: int) -> dict[str, str]:
+    _skip_if_catalog_missing()
     blocks = extract_product_cards_from_page(PDF_PATH, page, "GAPPO")
     return {block.rows[0]["sku"]: block.title for block in blocks if block.rows}
+
+
+def _skip_if_catalog_missing() -> None:
+    if not Path(PDF_PATH).exists():
+        pytest.skip(f"Catalog fixture is not available: {PDF_PATH}")
 
 
 def test_layout_listing_extracts_standalone_mixer_items():
@@ -62,5 +72,7 @@ def test_layout_listing_extracts_shower_heads_components_and_hoses():
 
 
 def test_catalog_overview_page_is_ignored():
+    _skip_if_catalog_missing()
+
     assert extract_product_cards_from_page(PDF_PATH, 28, "GAPPO") == []
     assert extract_catalog_grids_from_page(PDF_PATH, 28, "GAPPO") == []
