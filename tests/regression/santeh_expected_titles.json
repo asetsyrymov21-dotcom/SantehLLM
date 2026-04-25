@@ -1,0 +1,103 @@
+{
+    "description": "Santeh PDF extraction regression baseline. Expected titles after extraction, before DB import logic.",
+    "source_pdf": "2026 GAPPOсмесители каталог .pdf",
+    "brand": "GAPPO",
+    "regression_set": [
+        115,
+        123,
+        134,
+        138
+    ],
+    "_comment": "Status meanings: must_pass=must match exactly, stable=should not regress, legitimate_create=new product expected, historical_db_damage_ignored=bad data in DB not our fault, quality_debt_ignored=known issue not blocking",
+    "pages": {
+        "91": {
+            "_comment": "Stable reference page - titles should be clean",
+            "cases": [
+                {
+                    "sku": "G6001",
+                    "expected_name": "G6001 Душевая система с термостатом",
+                    "expected_status": "stable",
+                    "note": "Reference case - extraction should be clean"
+                },
+                {
+                    "sku": "G6002",
+                    "expected_name": "G6002 Душевая система с термостатом",
+                    "expected_status": "stable",
+                    "note": "Reference case - extraction should be clean"
+                }
+            ]
+        },
+        "97": {
+            "_comment": "Stable reference page",
+            "cases": [
+                {
+                    "sku": "G6007",
+                    "expected_name": "G6007 Душевая система с термостатом",
+                    "expected_status": "stable",
+                    "note": "Reference case"
+                }
+            ]
+        },
+        "99": {
+            "_comment": "Non-critical quality debt - longer titles acceptable",
+            "cases": [
+                {
+                    "sku": "G6010",
+                    "expected_name": "G6010 Душевая система с термостатом",
+                    "expected_status": "quality_debt_ignored",
+                    "note": "Page 99 has non-critical quality debt - some extra numbers may appear but not blocking"
+                }
+            ]
+        },
+        "115": {
+            "_comment": "Legitimate new product - should be created",
+            "cases": [
+                {
+                    "sku": "G3306-6",
+                    "expected_name": "G3306-6 Встраиваемый смеситель для ванны и душа",
+                    "expected_status": "legitimate_create",
+                    "note": "New variant - legitimate create, not a name damage"
+                }
+            ]
+        },
+        "123": {
+            "_comment": "TARGET DEFECT PAGE - G3306 is the key case",
+            "cases": [
+                {
+                    "sku": "G3306",
+                    "expected_name": "G3306 Встраиваемый смеситель для ванны и душа",
+                    "expected_status": "must_pass",
+                    "note": "TARGET DEFECT: currently extracts as 'G3306 Встраиваемый смеситель для ванны и душа 420' - must be fixed"
+                },
+                {
+                    "sku": "G3306-9",
+                    "expected_name": "G3306-9 Встраиваемый смеситель для ванны и душа",
+                    "expected_status": "historical_db_damage_ignored",
+                    "note": "Historical DB damage - bad name already in DB, extractor may or may not fix it, NOT a reason to patch extractor"
+                }
+            ]
+        },
+        "134": {
+            "_comment": "Baseline issue only - current extraction defect no longer reproduced",
+            "cases": [
+                {
+                    "sku": "G7207-3",
+                    "expected_name": "G7207 Встраиваемый гигиенический душ",
+                    "expected_status": "historical_db_damage_ignored",
+                    "note": "Baseline fix: current numeric-tail defect is gone; remaining mismatch is historical DB damage / old strict baseline, not an extractor defect"
+                }
+            ]
+        },
+        "138": {
+            "_comment": "Baseline issue only - current extraction defect no longer reproduced",
+            "cases": [
+                {
+                    "sku": "G7207-9",
+                    "expected_name": "G7207 Встраиваемый гигиенический душ",
+                    "expected_status": "historical_db_damage_ignored",
+                    "note": "Baseline fix: numeric-tail defect no longer reproduced on page 138; current extracted title is G7207 Встраиваемый гигиенический душ, so old strict expectation with -9 should not block extractor"
+                }
+            ]
+        }
+    }
+}

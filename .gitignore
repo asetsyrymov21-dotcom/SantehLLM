@@ -1,0 +1,55 @@
+# Секреты
+.env
+
+# Большие бинарные файлы (прайсы, каталоги)
+*.pdf
+*.xlsx
+*.xls
+*.sql
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Виртуальные окружения
+venv/
+.venv/
+env/
+.env/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+*.pytest_cache
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Логи
+*.log
+logs/
+reports/
+
+# Runtime/generated files
+storage/
+test_dir/
+test_write.tmp
+
+# Docker volumes
+postgres_data/
