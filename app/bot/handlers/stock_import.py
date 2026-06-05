@@ -18,6 +18,7 @@ from app.bot.handlers.menu_actions import (
 router = Router()
 
 MAX_TELEGRAM_DOWNLOAD_BYTES = 20 * 1024 * 1024
+SUPPORTED_STOCK_EXTENSIONS = (".xlsx", ".csv", ".txt")
 
 
 def _format_report(data: dict) -> str:
@@ -67,17 +68,23 @@ async def enter_stock_import_mode(message: types.Message, state: FSMContext):
 async def handle_stock_file(message: types.Message, state: FSMContext):
     doc = message.document
 
-    if not doc.file_name.endswith(".xlsx"):
+    filename = doc.file_name or ""
+
+    if not filename.lower().endswith(SUPPORTED_STOCK_EXTENSIONS):
         await message.answer(
-            "❌ Нужен файл формата <b>.xlsx</b>", parse_mode="HTML"
+            "❌ Нужен файл <b>.xlsx</b>, <b>.csv</b> или <b>.txt</b>.\n\n"
+            "Для больших Excel-файлов сохраните остатки как CSV: "
+            "<b>Артикул</b> и <b>Количество</b>.",
+            parse_mode="HTML",
         )
         return
 
     if doc.file_size and doc.file_size > MAX_TELEGRAM_DOWNLOAD_BYTES:
         await message.answer(
             "❌ Файл слишком большой для загрузки через Telegram-бота.\n\n"
-            "Telegram Bot API не даёт боту скачать такие большие файлы. "
-            "Уменьшите Excel-файл до 20 МБ или загрузите остатки через сервер/админский импорт.",
+            "Сохраните Excel как CSV-файл только с колонками "
+            "<b>Артикул</b> и <b>Количество</b> и отправьте CSV сюда. "
+            "Обычно такой файл получается в разы меньше.",
             parse_mode="HTML",
         )
         return
@@ -95,7 +102,8 @@ async def handle_stock_file(message: types.Message, state: FSMContext):
         if "file is too big" in str(e).lower():
             await message.answer(
                 "❌ Файл слишком большой для загрузки через Telegram-бота.\n\n"
-                "Уменьшите Excel-файл до 20 МБ или загрузите остатки через сервер/админский импорт.",
+                "Сохраните Excel как CSV-файл только с колонками "
+                "<b>Артикул</b> и <b>Количество</b> и отправьте CSV сюда.",
                 parse_mode="HTML",
             )
             return
@@ -104,7 +112,7 @@ async def handle_stock_file(message: types.Message, state: FSMContext):
 
     api = APIClient()
     try:
-        result = await api.import_stock(file_bytes, doc.file_name)
+        result = await api.import_stock(file_bytes, filename)
     except httpx.TimeoutException:
         await message.answer(
             "⏱ Импорт занимает слишком много времени.\n\n"

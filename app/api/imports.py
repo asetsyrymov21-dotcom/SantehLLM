@@ -16,6 +16,7 @@ from app.schemas import (
 from app.services.import_service import ImportService
 from app.services.product_import.excel_import_service import import_excel_catalog_file
 from app.services.stock_import.excel_parser import StockExcelParser
+from app.services.stock_import.text_parser import parse_stock_text_file
 from app.services.stock_import.matcher import StockMatcher
 from app.services.stock_import.importer import StockImporter
 
@@ -86,48 +87,58 @@ def import_inventory(
     if not file.filename:
         raise HTTPException(status_code=400, detail="File is required")
 
-    if not file.filename.lower().endswith(".xlsx"):
-        raise HTTPException(status_code=400, detail="Only .xlsx files are supported")
+    filename = file.filename
+    filename_lower = filename.lower()
+    if not filename_lower.endswith((".xlsx", ".csv", ".txt")):
+        raise HTTPException(
+            status_code=400,
+            detail="Only .xlsx, .csv and .txt files are supported",
+        )
 
-    # Save uploaded file to a temp file (StockExcelParser needs a path)
     content = file.file.read()
-    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-        tmp.write(content)
-        tmp_path = tmp.name
+    tmp_path = None
 
     try:
-        # Step 1: parse Excel
-        parser = StockExcelParser(tmp_path)
-        try:
-            parse_result = parser.parse(use_default_sheets=True)
-        except ValueError:
-            logger.warning(
-                "Inventory parse failed on default sheets: file=%s filename=%s",
-                tmp_path,
-                file.filename,
-                exc_info=True,
-            )
+        # Step 1: parse source file
+        if filename_lower.endswith(".xlsx"):
+            # Save uploaded file to a temp file (StockExcelParser needs a path)
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+                tmp.write(content)
+                tmp_path = tmp.name
+
+            parser = StockExcelParser(tmp_path)
             try:
-                parse_result = parser.parse(sheet_name=1, use_default_sheets=False)
+                parse_result = parser.parse(use_default_sheets=True)
             except ValueError:
-                logger.error(
-                    "Inventory parse failed on second sheet fallback: file=%s filename=%s",
+                logger.warning(
+                    "Inventory parse failed on default sheets: file=%s filename=%s",
                     tmp_path,
-                    file.filename,
+                    filename,
                     exc_info=True,
                 )
-                raise
+                try:
+                    parse_result = parser.parse(sheet_name=1, use_default_sheets=False)
+                except ValueError:
+                    logger.error(
+                        "Inventory parse failed on second sheet fallback: file=%s filename=%s",
+                        tmp_path,
+                        filename,
+                        exc_info=True,
+                    )
+                    raise
+        else:
+            parse_result = parse_stock_text_file(content, filename)
 
         # Step 2: match SKUs against DB
         matcher = StockMatcher(session, brand_filter=None)
         report = matcher.match_rows(parse_result.rows)
 
         # Step 3: commit updates
-        importer = StockImporter(session, source_file=file.filename)
+        importer = StockImporter(session, source_file=filename)
         result = importer.commit(report, skip_duplicates=True)
 
         # Step 4: generate and log summary
-        summary = result.generate_summary(source_file=file.filename)
+        summary = result.generate_summary(source_file=filename)
         summary.log_summary(logger)
 
         # CRITICAL: Fail if any products have NULL brand
@@ -145,11 +156,12 @@ def import_inventory(
         logger.exception(
             "Inventory import failed: file=%s filename=%s",
             tmp_path,
-            file.filename,
+            filename,
         )
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
     finally:
-        os.unlink(tmp_path)
+        if tmp_path:
+            os.unlink(tmp_path)
 
     return StockImportResponse(
         rows_scanned=result.rows_scanned_from_source,
