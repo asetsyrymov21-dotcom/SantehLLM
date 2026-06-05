@@ -6,13 +6,13 @@ from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile
 
-from app.bot.states import BatchSKUStates, UserFlow
+from app.bot.states import BatchSKUStates
 from app.bot.api_client import APIClient
 from app.bot.keyboards import (
     CHECK_EXCEL_REQUEST_BUTTON,
     LEGACY_CHECK_EXCEL_REQUEST_BUTTON,
-    MAIN_MENU_BUTTONS,
 )
+from app.bot.handlers.menu_actions import handle_menu_action
 from app.services.request_check.excel_parser import parse_excel_request
 from app.services.request_check.checker import check_request_lines
 from app.services.request_check.formatter import (
@@ -101,9 +101,7 @@ async def handle_excel_file(message: types.Message, state: FSMContext):
 
 @router.message(BatchSKUStates.awaiting_excel_file, F.text)
 async def excel_mode_text_fallback(message: types.Message, state: FSMContext):
-    if message.text in MAIN_MENU_BUTTONS:
-        await state.clear()
-        await state.set_state(UserFlow.main_menu)
+    if await handle_menu_action(message, state):
         return
     await message.answer(
         "📎 Пожалуйста, отправьте файл <b>.xlsx</b>", parse_mode="HTML"

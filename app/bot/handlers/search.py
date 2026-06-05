@@ -7,6 +7,7 @@ from app.bot.keyboards import (
     products_inline_keyboard,
     search_nav_inline_keyboard,
 )
+from app.bot.handlers.menu_actions import handle_menu_action
 from app.bot.storage import UserData
 from app.bot.api_client import APIClient
 
@@ -15,6 +16,8 @@ router = Router()
 
 @router.message(F.text == "🔎 Поиск товара")
 async def start_search(message: types.Message, state: FSMContext):
+    if await handle_menu_action(message, state):
+        return
     await state.set_state(UserFlow.search_input)
     await message.answer(
         "🔎 Введите SKU или название товара.\nМожно отправлять несколько запросов подряд.",
@@ -27,7 +30,7 @@ async def do_search(message: types.Message, state: FSMContext):
     """Выполнить поиск"""
     query = message.text.strip()
 
-    if query == "🏠 Главное меню":
+    if await handle_menu_action(message, state):
         return
 
     if len(query) < 2:

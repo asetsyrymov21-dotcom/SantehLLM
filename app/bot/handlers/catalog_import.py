@@ -8,9 +8,9 @@ from aiogram.fsm.context import FSMContext
 from app.bot.api_client import APIClient
 from app.bot.keyboards import (
     IMPORT_CATALOG_BUTTON,
-    MAIN_MENU_BUTTONS,
     main_menu_keyboard,
 )
+from app.bot.handlers.menu_actions import handle_menu_action
 from app.bot.states import CatalogImportStates, UserFlow
 
 router = Router()
@@ -98,8 +98,7 @@ async def handle_catalog_file(message: types.Message, state: FSMContext):
 
 @router.message(CatalogImportStates.awaiting_catalog_file, F.text)
 async def catalog_import_text_fallback(message: types.Message, state: FSMContext):
-    if message.text in MAIN_MENU_BUTTONS:
-        await state.clear()
+    if await handle_menu_action(message, state):
         return
     await message.answer(
         "📎 Пожалуйста, отправьте файл <b>.xlsx</b> с каталогом",

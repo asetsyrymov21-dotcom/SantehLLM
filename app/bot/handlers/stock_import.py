@@ -7,19 +7,13 @@ from aiogram.fsm.context import FSMContext
 
 from app.bot.states import StockImportStates
 from app.bot.api_client import APIClient
-from app.bot.keyboards import IMPORT_STOCK_BUTTON, MAIN_MENU_BUTTONS
+from app.bot.keyboards import IMPORT_STOCK_BUTTON
+from app.bot.handlers.menu_actions import (
+    STOCK_IMPORT_INSTRUCTION,
+    handle_menu_action,
+)
 
 router = Router()
-
-_INSTRUCTION = (
-    "📥 <b>Загрузка остатков</b>\n\n"
-    "Отправьте файл <b>.xlsx</b> с остатками.\n\n"
-    "Обязательные колонки:\n"
-    "• <b>Артикул</b> (или: арт., sku, код)\n"
-    "• <b>Количество</b> (или: остаток, qty, наличие, шт.)\n\n"
-    "Поддерживаемые бренды: <b>FRAP</b> и <b>GAPPO</b>.\n"
-    "Первая строка — заголовки."
-)
 
 def _format_report(data: dict) -> str:
     rows = data.get("rows_scanned", 0)
@@ -61,7 +55,7 @@ def _format_report(data: dict) -> str:
 @router.message(F.text == IMPORT_STOCK_BUTTON)
 async def enter_stock_import_mode(message: types.Message, state: FSMContext):
     await state.set_state(StockImportStates.awaiting_stock_file)
-    await message.answer(_INSTRUCTION, parse_mode="HTML")
+    await message.answer(STOCK_IMPORT_INSTRUCTION, parse_mode="HTML")
 
 
 @router.message(StockImportStates.awaiting_stock_file, F.document)
@@ -102,8 +96,7 @@ async def handle_stock_file(message: types.Message, state: FSMContext):
 
 @router.message(StockImportStates.awaiting_stock_file, F.text)
 async def stock_import_text_fallback(message: types.Message, state: FSMContext):
-    if message.text in MAIN_MENU_BUTTONS:
-        await state.clear()
+    if await handle_menu_action(message, state):
         return
     await message.answer(
         "📎 Пожалуйста, отправьте файл <b>.xlsx</b> с остатками",

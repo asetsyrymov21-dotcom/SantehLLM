@@ -6,13 +6,12 @@ from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile
 
-from app.bot.states import UserFlow, BatchSKUStates
+from app.bot.states import BatchSKUStates
 from app.bot.api_client import APIClient
-from app.bot.keyboards import (
-    CHECK_EXCEL_REQUEST_BUTTON,
-    CHECK_REQUEST_BUTTON,
-    LEGACY_CHECK_EXCEL_REQUEST_BUTTON,
-    MAIN_MENU_BUTTONS,
+from app.bot.keyboards import CHECK_REQUEST_BUTTON
+from app.bot.handlers.menu_actions import (
+    CHECK_REQUEST_INSTRUCTION,
+    handle_menu_action,
 )
 from app.services.request_check.excel_parser import parse_excel_request
 from app.services.request_check.parser import parse_batch_sku_text
@@ -29,39 +28,17 @@ from app.services.request_check.excel_report import (
 
 router = Router()
 
-_INSTRUCTION = (
-    "📋 <b>Проверка заявки</b>\n\n"
-    "Отправьте заявку одним из способов:\n\n"
-    "• файл <b>.xlsx</b> с колонками <b>SKU</b> и <b>Qty</b>\n"
-    "• текстом — SKU по одному в строке\n\n"
-    "В тексте можно указывать количество:\n\n"
-    "<code>G1012\n"
-    "G1013 2\n"
-    "F2001 x3\n"
-    "H5010 *2\n"
-    "K3030, 5</code>\n\n"
-    "Если количество не указано — считается 1 шт."
-)
 
-
-@router.message(
-    F.text.in_(
-        {
-            CHECK_REQUEST_BUTTON,
-            CHECK_EXCEL_REQUEST_BUTTON,
-            LEGACY_CHECK_EXCEL_REQUEST_BUTTON,
-        }
-    )
-)
+@router.message(F.text == CHECK_REQUEST_BUTTON)
 async def enter_batch_mode_reply(message: types.Message, state: FSMContext):
     await state.set_state(BatchSKUStates.awaiting_input)
-    await message.answer(_INSTRUCTION, parse_mode="HTML")
+    await message.answer(CHECK_REQUEST_INSTRUCTION, parse_mode="HTML")
 
 
 @router.callback_query(F.data == "batch:check_request")
 async def enter_batch_mode(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(BatchSKUStates.awaiting_input)
-    await callback.message.answer(_INSTRUCTION, parse_mode="HTML")
+    await callback.message.answer(CHECK_REQUEST_INSTRUCTION, parse_mode="HTML")
     await callback.answer()
 
 
@@ -124,9 +101,7 @@ async def handle_batch_excel_file(message: types.Message, state: FSMContext):
 async def handle_batch_input(message: types.Message, state: FSMContext):
     text = message.text.strip()
 
-    if text in MAIN_MENU_BUTTONS:
-        await state.clear()
-        await state.set_state(UserFlow.main_menu)
+    if await handle_menu_action(message, state):
         return
 
     request_lines = parse_batch_sku_text(text)
