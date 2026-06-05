@@ -4,9 +4,11 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
+from aiogram.client.telegram import TelegramAPIServer
 from aiogram.fsm.storage.memory import MemoryStorage
 
-from app.bot.config import BOT_TOKEN
+from app.bot.config import BOT_TOKEN, TELEGRAM_API_BASE_URL
 from app.bot.handlers import register_handlers
 
 logger = logging.getLogger(__name__)
@@ -15,7 +17,16 @@ logger = logging.getLogger(__name__)
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
-    bot = Bot(BOT_TOKEN)
+    if TELEGRAM_API_BASE_URL:
+        api_server = TelegramAPIServer.from_base(
+            TELEGRAM_API_BASE_URL,
+            is_local=True,
+        )
+        bot = Bot(BOT_TOKEN, session=AiohttpSession(api=api_server))
+        logger.info("Using local Telegram Bot API: %s", TELEGRAM_API_BASE_URL)
+    else:
+        bot = Bot(BOT_TOKEN)
+
     storage = MemoryStorage()
     dp = Dispatcher(storage=storage)
 

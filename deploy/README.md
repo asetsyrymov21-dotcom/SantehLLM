@@ -32,6 +32,18 @@ cp .env.example .env
 
 Edit `.env` on the VPS and add production secrets.
 
+For large Telegram uploads, the VPS compose runs a local Telegram Bot API
+container. Add these values from https://my.telegram.org/apps to `.env`:
+
+```bash
+TELEGRAM_API_ID=123456
+TELEGRAM_API_HASH=your_api_hash
+```
+
+The bot itself still uses `TELEGRAM_BOT_TOKEN`. Managers can keep uploading
+Excel files in Telegram; the local Bot API removes the small public Bot API
+download limit.
+
 Run the first deploy manually:
 
 ```bash
