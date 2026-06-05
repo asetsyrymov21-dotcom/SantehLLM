@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 
+import httpx
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 
@@ -68,7 +69,10 @@ async def handle_stock_file(message: types.Message, state: FSMContext):
         )
         return
 
-    await message.answer("⏳ Читаю файл, запускаю импорт...")
+    await message.answer(
+        "⏳ Читаю файл, запускаю импорт...\n\n"
+        "Если файл большой, это может занять несколько минут."
+    )
 
     # Скачиваем файл в память
     file_io = io.BytesIO()
@@ -78,8 +82,15 @@ async def handle_stock_file(message: types.Message, state: FSMContext):
     api = APIClient()
     try:
         result = await api.import_stock(file_bytes, doc.file_name)
+    except httpx.TimeoutException:
+        await message.answer(
+            "⏱ Импорт занимает слишком много времени.\n\n"
+            "Файл мог быть большим или API всё ещё обрабатывает данные. "
+            "Проверьте остатки чуть позже или отправьте файл ещё раз, если отчёт не появится.",
+            parse_mode="HTML",
+        )
+        return
     except Exception as e:
-        await api.close()
         await message.answer(
             f"❌ Ошибка при импорте:\n<code>{e}</code>", parse_mode="HTML"
         )

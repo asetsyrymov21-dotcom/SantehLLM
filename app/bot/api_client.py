@@ -62,7 +62,7 @@ class APIClient:
         resp = await self.client.post(
             "/imports/inventory",
             files=files,
-            timeout=120,  # импорт может занять время на большом файле
+            timeout=httpx.Timeout(600.0, connect=15.0),
         )
         resp.raise_for_status()
         return resp.json()
