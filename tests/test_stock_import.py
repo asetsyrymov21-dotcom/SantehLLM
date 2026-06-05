@@ -5,6 +5,7 @@ from unittest.mock import Mock, MagicMock
 
 from app.services.stock_import import StockExcelParser, StockMatcher, StockImporter
 from app.services.stock_import.excel_parser import ExcelStockRow
+from app.api.imports import _parse_stock_excel_file, StockQuantityColumnMissingError
 
 
 class TestStockExcelParser:
@@ -35,6 +36,45 @@ class TestStockExcelParser:
         headers = ["Название", "Цена", "Описание"]
         with pytest.raises(ValueError, match="article"):
             find_column_mapping(headers)
+
+    def test_auto_header_detects_stock_file_after_service_rows(self, tmp_path):
+        """Stock files may have advertising/service rows before real headers."""
+        from openpyxl import Workbook
+
+        file_path = tmp_path / "stock.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["", "2026", "", ""])
+        ws.append(["", "ПРАЙС ЛИСТ", "", ""])
+        ws.append(["Артикул", "Название", "Остаток", "Цена"])
+        ws.append(["F1002-B", "Смеситель", None, 9520])
+        ws.append(["F2002-B", "Смеситель", "7", 12230])
+        wb.save(file_path)
+
+        result = _parse_stock_excel_file(str(file_path))
+
+        assert result.column_mapping["article"] == "Артикул"
+        assert result.column_mapping["quantity"] == "Остаток"
+        assert len(result.rows) == 2
+        assert result.rows[0].raw_quantity is None
+        assert result.rows[1].raw_quantity == "7"
+
+    def test_price_file_without_stock_column_is_rejected(self, tmp_path):
+        """A catalog price list must not be imported as zero stock."""
+        from openpyxl import Workbook
+
+        file_path = tmp_path / "price.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["", "2026", "", ""])
+        ws.append(["", "ПРАЙС ЛИСТ", "", ""])
+        ws.append(["Артикул", "Название", "Розница", "ОПТ"])
+        ws.append(["F1002-B", "Смеситель", 9520, 7140])
+        ws.append(["F2002-B", "Смеситель", 12230, 9180])
+        wb.save(file_path)
+
+        with pytest.raises(StockQuantityColumnMissingError, match="прайс-лист"):
+            _parse_stock_excel_file(str(file_path))
 
 
 class TestStockMatcher:

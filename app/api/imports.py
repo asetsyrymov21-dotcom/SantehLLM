@@ -28,6 +28,10 @@ MAX_EXCEL_UPLOAD_BYTES = 120 * 1024 * 1024
 STOCK_HEADER_ROWS_TO_TRY = range(0, 10)
 
 
+class StockQuantityColumnMissingError(ValueError):
+    """Raised when an Excel file has SKU/article headers but no stock column."""
+
+
 def _parse_stock_excel_file(path: str) -> object:
     last_error: Exception | None = None
 
@@ -45,15 +49,23 @@ def _parse_stock_excel_file(path: str) -> object:
             continue
 
         if "quantity" not in parse_result.column_mapping:
-            last_error = ValueError(
-                "Required column 'quantity' not found in Excel. "
-                "The stock file must contain an article/SKU column and a stock/quantity column."
+            header_columns = (
+                list(parse_result.rows[0].raw_data.keys())
+                if parse_result.rows
+                else list(parse_result.column_mapping.values())
             )
-            logger.info(
-                "Inventory parse found article but no quantity: header_row=%s",
-                header_row,
+            columns = ", ".join(
+                f"'{column}'"
+                for column in header_columns[:20]
+                if column and not str(column).startswith("Unnamed:")
             )
-            continue
+            raise StockQuantityColumnMissingError(
+                "Это похоже на прайс-лист без колонки остатков: найдена колонка "
+                "артикула, но не найдена колонка количества/остатка. "
+                "Склад не изменён. Загрузите файл остатков с колонкой "
+                "'Остаток', 'Количество', 'Qty', 'Stock' или 'Шт'. "
+                f"Колонки файла: {columns or 'нет'}."
+            )
 
         logger.info("Inventory headers detected with header_row=%s", header_row)
         return parse_result
