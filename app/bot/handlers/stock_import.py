@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import io
 
 import httpx
@@ -113,6 +114,18 @@ async def handle_stock_file(message: types.Message, state: FSMContext):
     api = APIClient()
     try:
         result = await api.import_stock(file_bytes, filename)
+    except httpx.HTTPStatusError as e:
+        detail = str(e)
+        try:
+            payload = e.response.json()
+            detail = payload.get("detail") or detail
+        except Exception:
+            pass
+        await message.answer(
+            f"❌ Ошибка при импорте:\n<code>{html.escape(detail)}</code>",
+            parse_mode="HTML",
+        )
+        return
     except httpx.TimeoutException:
         await message.answer(
             "⏱ Импорт занимает слишком много времени.\n\n"

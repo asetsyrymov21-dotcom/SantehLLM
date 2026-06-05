@@ -25,6 +25,44 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/imports", tags=["imports"])
 
 MAX_EXCEL_UPLOAD_BYTES = 120 * 1024 * 1024
+STOCK_HEADER_ROWS_TO_TRY = range(0, 10)
+
+
+def _parse_stock_excel_file(path: str) -> object:
+    last_error: Exception | None = None
+
+    for header_row in STOCK_HEADER_ROWS_TO_TRY:
+        parser = StockExcelParser(path, header_row=header_row)
+        try:
+            parse_result = parser.parse(use_default_sheets=True)
+        except ValueError as e:
+            last_error = e
+            logger.info(
+                "Inventory parse failed with header_row=%s: %s",
+                header_row,
+                e,
+            )
+            continue
+
+        if "quantity" not in parse_result.column_mapping:
+            last_error = ValueError(
+                "Required column 'quantity' not found in Excel. "
+                "The stock file must contain an article/SKU column and a stock/quantity column."
+            )
+            logger.info(
+                "Inventory parse found article but no quantity: header_row=%s",
+                header_row,
+            )
+            continue
+
+        logger.info("Inventory headers detected with header_row=%s", header_row)
+        return parse_result
+
+    raise ValueError(
+        "Не удалось найти колонки остатков в Excel. "
+        "Файл должен содержать колонку артикула и колонку количества/остатка. "
+        f"Last parser error: {last_error}"
+    )
 
 
 @router.post("/catalog", response_model=ImportCatalogResponse)
@@ -106,26 +144,7 @@ def import_inventory(
                 tmp.write(content)
                 tmp_path = tmp.name
 
-            parser = StockExcelParser(tmp_path)
-            try:
-                parse_result = parser.parse(use_default_sheets=True)
-            except ValueError:
-                logger.warning(
-                    "Inventory parse failed on default sheets: file=%s filename=%s",
-                    tmp_path,
-                    filename,
-                    exc_info=True,
-                )
-                try:
-                    parse_result = parser.parse(sheet_name=1, use_default_sheets=False)
-                except ValueError:
-                    logger.error(
-                        "Inventory parse failed on second sheet fallback: file=%s filename=%s",
-                        tmp_path,
-                        filename,
-                        exc_info=True,
-                    )
-                    raise
+            parse_result = _parse_stock_excel_file(tmp_path)
         else:
             parse_result = parse_stock_text_file(content, filename)
 
@@ -151,6 +170,18 @@ def import_inventory(
 
         session.commit()
 
+    except HTTPException:
+        session.rollback()
+        raise
+    except ValueError as e:
+        session.rollback()
+        logger.warning(
+            "Inventory import validation failed: file=%s filename=%s error=%s",
+            tmp_path,
+            filename,
+            e,
+        )
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         session.rollback()
         logger.exception(
