@@ -144,6 +144,36 @@ class TestStockExcelParser:
         assert [row.raw_article for row in result.rows] == ["F1002-B", "F2002-B"]
         assert [row.raw_quantity for row in result.rows] == ["4", None]
 
+    def test_stock_import_prefers_full_sheet_over_small_valid_sheet(self, tmp_path):
+        """A small first worksheet should not hide the full stock worksheet."""
+        from openpyxl import Workbook
+
+        file_path = tmp_path / "multi-sheet-stock.xlsx"
+        wb = Workbook()
+
+        small_ws = wb.active
+        small_ws.title = "Запрос"
+        small_ws.append(["型号", "数量"])
+        small_ws.append(["G1307.2004", "210"])
+
+        full_ws = wb.create_sheet("Остатки")
+        full_ws.append(["型号", "数量"])
+        full_ws.append(["G1391", "10"])
+        full_ws.append(["G1392", "20"])
+        full_ws.append(["G1393", "30"])
+
+        noise_ws = wb.create_sheet("Служебный")
+        noise_ws.append(["Артикул", "Наименование", "РРЦ"])
+        noise_ws.append(["G0000", "Прайс", "100"])
+
+        wb.save(file_path)
+
+        result = _parse_stock_excel_file(str(file_path))
+
+        assert result.sheet_name == "Остатки"
+        assert [row.raw_article for row in result.rows] == ["G1391", "G1392", "G1393"]
+        assert [row.raw_quantity for row in result.rows] == ["10", "20", "30"]
+
 
 class TestStockMatcher:
     """Test matching logic."""

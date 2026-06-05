@@ -51,6 +51,7 @@ def _stock_sheet_names_to_try(path: str) -> list[str]:
 def _parse_stock_excel_file(path: str) -> object:
     last_error: Exception | None = None
     article_only_result: object | None = None
+    valid_results: list[object] = []
 
     for sheet_name in _stock_sheet_names_to_try(path):
         for header_row in STOCK_HEADER_ROWS_TO_TRY:
@@ -80,11 +81,25 @@ def _parse_stock_excel_file(path: str) -> object:
                 continue
 
             logger.info(
-                "Inventory headers detected with sheet=%s header_row=%s",
+                "Inventory candidate found with sheet=%s header_row=%s rows=%s",
                 sheet_name,
                 header_row,
+                len(parse_result.rows),
             )
-            return parse_result
+            valid_results.append(parse_result)
+
+    if valid_results:
+        selected_result = max(valid_results, key=lambda result: len(result.rows))
+        logger.info(
+            "Inventory headers selected: sheet=%s rows=%s candidates=%s",
+            selected_result.sheet_name,
+            len(selected_result.rows),
+            [
+                {"sheet": result.sheet_name, "rows": len(result.rows)}
+                for result in valid_results
+            ],
+        )
+        return selected_result
 
     if article_only_result is not None:
         header_columns = (
