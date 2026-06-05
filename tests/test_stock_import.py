@@ -6,6 +6,7 @@ from unittest.mock import Mock, MagicMock
 from app.services.stock_import import StockExcelParser, StockMatcher, StockImporter
 from app.services.stock_import.excel_parser import ExcelStockRow
 from app.api.imports import _parse_stock_excel_file, StockQuantityColumnMissingError
+from app.bot.handlers.stock_import import _format_report
 
 
 class TestStockExcelParser:
@@ -173,6 +174,23 @@ class TestStockExcelParser:
         assert result.sheet_name == "Остатки"
         assert [row.raw_article for row in result.rows] == ["G1391", "G1392", "G1393"]
         assert [row.raw_quantity for row in result.rows] == ["10", "20", "30"]
+
+
+class TestStockImportBotReport:
+    """Test Telegram stock import report text."""
+
+    def test_empty_quantity_report_says_out_of_stock(self):
+        text = _format_report(
+            {
+                "rows_scanned": 10,
+                "updated": 1,
+                "unchanged": 0,
+                "empty_qty_treated_as_zero": 3,
+            }
+        )
+
+        assert "Нет в наличии (пустое кол-во): <b>3</b>" in text
+        assert "Пустое кол-во → 0" not in text
 
 
 class TestStockMatcher:

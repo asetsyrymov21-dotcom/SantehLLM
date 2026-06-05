@@ -53,7 +53,7 @@ def _format_report(data: dict) -> str:
     if bad_qty:
         lines.append(f"⚠️ Неверное кол-во:    <b>{bad_qty}</b>")
     if zero_qty:
-        lines.append(f"ℹ️ Пустое кол-во → 0:  <b>{zero_qty}</b>")
+        lines.append(f"ℹ️ Нет в наличии (пустое кол-во): <b>{zero_qty}</b>")
     if errors:
         lines.append(f"❌ Ошибок:             <b>{errors}</b>")
 
