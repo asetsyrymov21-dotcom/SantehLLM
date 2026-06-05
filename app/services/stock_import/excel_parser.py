@@ -69,6 +69,18 @@ STOCK_COLUMN_ALIASES: dict[str, list[str]] = {
     # It may contain formulas/VLOOKUP and is only for reference
 }
 
+QUANTITY_NEGATIVE_KEYWORDS = [
+    "цена",
+    "ррц",
+    "опт",
+    "скид",
+    "price",
+    "cost",
+    "amount",
+    "сумма",
+    "стоимость",
+]
+
 
 def normalize_header_name(header: str) -> str:
     """Normalize column header for matching.
@@ -89,6 +101,94 @@ def normalize_header_name(header: str) -> str:
     return normalized
 
 
+def compact_header_name(header: str) -> str:
+    """Normalize header for fuzzy matching without punctuation/spaces."""
+    import re
+
+    normalized = normalize_header_name(header)
+    return re.sub(r"[^0-9a-zа-яё\u4e00-\u9fff]+", "", normalized)
+
+
+def _has_negative_quantity_signal(normalized: str) -> bool:
+    return any(keyword in normalized for keyword in QUANTITY_NEGATIVE_KEYWORDS)
+
+
+def _matches_article_header(normalized: str, compact: str) -> bool:
+    article_aliases = STOCK_COLUMN_ALIASES["article"]
+    article_aliases_normalized = {normalize_header_name(alias) for alias in article_aliases}
+    article_aliases_compact = {compact_header_name(alias) for alias in article_aliases}
+
+    if normalized in article_aliases_normalized or compact in article_aliases_compact:
+        return True
+
+    contains_signals = [
+        "артикул",
+        "sku",
+        "код товара",
+        "модель",
+        "article",
+        "artikel",
+        "model",
+        "型号",
+        "货号",
+        "产品编号",
+        "商品编码",
+        "客户号",
+    ]
+    return any(signal in normalized for signal in contains_signals)
+
+
+def _matches_quantity_header(normalized: str, compact: str) -> bool:
+    if _has_negative_quantity_signal(normalized):
+        return False
+
+    quantity_aliases = STOCK_COLUMN_ALIASES["quantity"]
+    quantity_aliases_normalized = {normalize_header_name(alias) for alias in quantity_aliases}
+    quantity_aliases_compact = {compact_header_name(alias) for alias in quantity_aliases}
+
+    if normalized in quantity_aliases_normalized or compact in quantity_aliases_compact:
+        return True
+
+    contains_signals = [
+        "остат",
+        "налич",
+        "количество",
+        "кол во",
+        "кол-во",
+        "колво",
+        "склад",
+        "qty",
+        "quantity",
+        "stock",
+        "inventory",
+        "available",
+        "库存",
+        "数量",
+    ]
+
+    if any(signal in normalized for signal in contains_signals):
+        return True
+
+    return "шт" in normalized and not _has_negative_quantity_signal(normalized)
+
+
+def detect_stock_header_field(header: str) -> str | None:
+    """Detect the stock-import field represented by a source column header."""
+    normalized = normalize_header_name(header)
+    compact = compact_header_name(header)
+
+    if not normalized:
+        return None
+
+    if _matches_article_header(normalized, compact):
+        return "article"
+
+    if _matches_quantity_header(normalized, compact):
+        return "quantity"
+
+    return None
+
+
 def find_column_mapping(headers: list[str]) -> dict[str, str]:
     """Map Excel headers to standard field names.
 
@@ -104,15 +204,10 @@ def find_column_mapping(headers: list[str]) -> dict[str, str]:
     mapping: dict[str, str] = {}
 
     for header in headers:
-        normalized = normalize_header_name(header)
-
-        for field_name, aliases in STOCK_COLUMN_ALIASES.items():
-            if normalized in aliases:
-                # Take first match
-                if field_name not in mapping:
-                    mapping[field_name] = header
-                    logger.debug(f"Mapped '{header}' -> '{field_name}'")
-                break
+        field_name = detect_stock_header_field(header)
+        if field_name and field_name not in mapping:
+            mapping[field_name] = header
+            logger.debug(f"Mapped '{header}' -> '{field_name}'")
 
     # Check for required fields
     if "article" not in mapping:

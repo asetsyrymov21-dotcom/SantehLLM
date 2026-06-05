@@ -34,6 +34,7 @@ class StockQuantityColumnMissingError(ValueError):
 
 def _parse_stock_excel_file(path: str) -> object:
     last_error: Exception | None = None
+    article_only_result: object | None = None
 
     for header_row in STOCK_HEADER_ROWS_TO_TRY:
         parser = StockExcelParser(path, header_row=header_row)
@@ -49,26 +50,34 @@ def _parse_stock_excel_file(path: str) -> object:
             continue
 
         if "quantity" not in parse_result.column_mapping:
-            header_columns = (
-                list(parse_result.rows[0].raw_data.keys())
-                if parse_result.rows
-                else list(parse_result.column_mapping.values())
+            article_only_result = article_only_result or parse_result
+            logger.info(
+                "Inventory parse found article but no quantity: header_row=%s",
+                header_row,
             )
-            columns = ", ".join(
-                f"'{column}'"
-                for column in header_columns[:20]
-                if column and not str(column).startswith("Unnamed:")
-            )
-            raise StockQuantityColumnMissingError(
-                "Это похоже на прайс-лист без колонки остатков: найдена колонка "
-                "артикула, но не найдена колонка количества/остатка. "
-                "Склад не изменён. Загрузите файл остатков с колонкой "
-                "'Остаток', 'Количество', 'Qty', 'Stock' или 'Шт'. "
-                f"Колонки файла: {columns or 'нет'}."
-            )
+            continue
 
         logger.info("Inventory headers detected with header_row=%s", header_row)
         return parse_result
+
+    if article_only_result is not None:
+        header_columns = (
+            list(article_only_result.rows[0].raw_data.keys())
+            if article_only_result.rows
+            else list(article_only_result.column_mapping.values())
+        )
+        columns = ", ".join(
+            f"'{column}'"
+            for column in header_columns[:20]
+            if column and not str(column).startswith("Unnamed:")
+        )
+        raise StockQuantityColumnMissingError(
+            "Это похоже на прайс-лист без колонки остатков: найдена колонка "
+            "артикула, но не найдена колонка количества/остатка. "
+            "Склад не изменён. Загрузите файл остатков с колонкой "
+            "'Остаток', 'Количество', 'Qty', 'Stock' или 'Шт'. "
+            f"Колонки файла: {columns or 'нет'}."
+        )
 
     raise ValueError(
         "Не удалось найти колонки остатков в Excel. "

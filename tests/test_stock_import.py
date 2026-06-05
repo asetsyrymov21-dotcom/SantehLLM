@@ -29,6 +29,24 @@ class TestStockExcelParser:
         assert "quantity" in mapping
         assert mapping["quantity"] == "Шт"
 
+    def test_find_column_mapping_fuzzy_headers(self):
+        """Should tolerate common supplier header wording changes."""
+        from app.services.stock_import.excel_parser import find_column_mapping
+
+        headers = ["Артикул поставщика", "Свободный остаток, шт.", "Цена со скидкой"]
+        mapping = find_column_mapping(headers)
+        assert mapping["article"] == "Артикул поставщика"
+        assert mapping["quantity"] == "Свободный остаток, шт."
+
+    def test_find_column_mapping_does_not_treat_price_as_quantity(self):
+        """Price columns must not be used as stock quantity."""
+        from app.services.stock_import.excel_parser import find_column_mapping
+
+        headers = ["Артикул", "Наименование", "РРЦ", "Цена со скидкой"]
+        mapping = find_column_mapping(headers)
+        assert mapping["article"] == "Артикул"
+        assert "quantity" not in mapping
+
     def test_find_column_mapping_missing_article(self):
         """Should raise error if no article column."""
         from app.services.stock_import.excel_parser import find_column_mapping
@@ -75,6 +93,28 @@ class TestStockExcelParser:
 
         with pytest.raises(StockQuantityColumnMissingError, match="прайс-лист"):
             _parse_stock_excel_file(str(file_path))
+
+    def test_header_detection_continues_after_article_only_row(self, tmp_path):
+        """An article-only candidate should not block a later real stock header."""
+        from openpyxl import Workbook
+
+        file_path = tmp_path / "mixed.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.append(["", "ПРАЙС ЛИСТ", "", ""])
+        ws.append(["Артикул", "Наименование", "РРЦ", "Цена со скидкой"])
+        ws.append(["F1002-B", "Смеситель", 9520, 7140])
+        ws.append(["Артикул поставщика", "Свободный остаток, шт.", "Цена"])
+        ws.append(["F2002-B", "12", 12230])
+        wb.save(file_path)
+
+        result = _parse_stock_excel_file(str(file_path))
+
+        assert result.column_mapping["article"] == "Артикул поставщика"
+        assert result.column_mapping["quantity"] == "Свободный остаток, шт."
+        assert len(result.rows) == 1
+        assert result.rows[0].raw_article == "F2002-B"
+        assert result.rows[0].raw_quantity == "12"
 
 
 class TestStockMatcher:
