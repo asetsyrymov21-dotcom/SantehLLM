@@ -66,3 +66,25 @@ class APIClient:
         )
         resp.raise_for_status()
         return resp.json()
+
+    async def import_catalog_excel(
+        self,
+        file_bytes: bytes,
+        filename: str,
+        header_row: int = 2,
+    ) -> dict:
+        files = {
+            "file": (
+                filename,
+                file_bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+        }
+        resp = await self.client.post(
+            "/imports/catalog-excel",
+            params={"header_row": header_row},
+            files=files,
+            timeout=180,
+        )
+        resp.raise_for_status()
+        return resp.json()

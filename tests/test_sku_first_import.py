@@ -5,7 +5,7 @@ These tests verify the requirements:
 2. Import with only SKU + price (title optional, name falls back to SKU)
 3. Missing description does NOT cause skip
 4. needs_pdf_enrichment=true when metadata insufficient
-5. Engineering SKUs (F101.2004) are skipped (out of scope)
+5. Engineering SKUs (F101.2004) are imported
 6. Schema remains strict outside import path
 """
 
@@ -26,7 +26,7 @@ from app.schemas.product import ProductCreate
 
 
 class TestEngineeringSkuDetection:
-    """Engineering SKUs should be identified and skipped."""
+    """Engineering SKUs can still be identified for diagnostics."""
 
     @pytest.mark.parametrize(
         "sku,expected",
@@ -258,8 +258,8 @@ class TestSkuFirstProductBuilding:
         assert product["base_attributes"]["needs_pdf_enrichment"] is False
         assert "description_missing_in_excel" not in product["base_attributes"]
 
-    def test_engineering_sku_is_skipped(self):
-        """Engineering SKUs like F101.2004 should be skipped."""
+    def test_engineering_sku_is_imported(self):
+        """Engineering SKUs like F101.2004 should be imported."""
         service = MergeService()
         excel_row = {
             "sku": "F101.2004",
@@ -274,12 +274,11 @@ class TestSkuFirstProductBuilding:
 
         product = service.build_product_from_excel(excel_row)
 
-        # Engineering SKU is marked for skip
-        assert (
-            product["base_attributes"]["_skipped_reason"]
-            == "engineering_sku_out_of_scope"
-        )
-        assert product["merge_status"] == "skipped_engineering_sku"
+        assert product["sku"] == "F101.2004"
+        assert product["title"] == "Some engineering product"
+        assert product["price"] == 50000.0
+        assert product["merge_status"] == "excel_only"
+        assert "_skipped_reason" not in product["base_attributes"]
 
     def test_title_saved_when_present(self):
         """Excel short name/title should be saved when present."""

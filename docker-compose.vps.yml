@@ -8,6 +8,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   api:
     build: .
@@ -15,9 +17,11 @@ services:
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
       - db
-    ports:
-      - "${API_PORT:-8000}:8000"
+    expose:
+      - "8000"
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   bot:
     build: .
@@ -28,6 +32,8 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
 
   migrate:
     build: .
@@ -36,6 +42,8 @@ services:
     depends_on:
       - db
     restart: "no"
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   pgdata:

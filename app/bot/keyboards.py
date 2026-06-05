@@ -9,6 +9,7 @@ def main_menu_keyboard():
     kb.button(text="🔎 Поиск товара")
     kb.button(text="📋 Проверить заявку")
     kb.button(text="📂 Загрузить Excel-заявку")
+    kb.button(text="🧾 Загрузить каталог")
     kb.button(text="📥 Загрузить остатки")
     kb.adjust(1)
     return kb.as_markup(

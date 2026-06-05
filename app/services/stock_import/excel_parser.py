@@ -14,8 +14,11 @@ from typing import Any, Optional, Iterator
 logger = logging.getLogger(__name__)
 
 
-# Default sheets to read for FRAP stock files
-DEFAULT_FRAP_SHEETS = ["水", "接"]
+# Default sheets to read for stock files.
+# "总" is the combined stock sheet in current supplier files. If it is absent,
+# fall back to legacy category-level sheets.
+DEFAULT_FRAP_SHEETS = ["总"]
+FALLBACK_FRAP_SHEETS = ["水", "接"]
 
 # Aliases for matching Russian headers from stock files
 STOCK_COLUMN_ALIASES: dict[str, list[str]] = {
@@ -37,6 +40,7 @@ STOCK_COLUMN_ALIASES: dict[str, list[str]] = {
         "货号",
         "产品编号",
         "商品编码",
+        "客户号",
     ],
     "quantity": [
         "количество",
@@ -59,6 +63,7 @@ STOCK_COLUMN_ALIASES: dict[str, list[str]] = {
         "库存",
         "可用库存",
         "数量",
+        "预计可发量(库存)",
     ],
     # Note: "1с" column is intentionally NOT used as authoritative source
     # It may contain formulas/VLOOKUP and is only for reference
@@ -222,8 +227,23 @@ class StockExcelParser:
             else:
                 sheet_desc = f"{len(sheet_name)} sheets"
         elif use_default_sheets:
-            sheets_to_read = DEFAULT_FRAP_SHEETS
-            sheet_desc = f"default sheets {DEFAULT_FRAP_SHEETS}"
+            import pandas as pd
+
+            available_sheets = set(
+                pd.ExcelFile(self.file_path, engine="openpyxl").sheet_names
+            )
+            sheets_to_read = [
+                sheet for sheet in DEFAULT_FRAP_SHEETS if sheet in available_sheets
+            ]
+            if not sheets_to_read:
+                sheets_to_read = [
+                    sheet for sheet in FALLBACK_FRAP_SHEETS if sheet in available_sheets
+                ]
+            if not sheets_to_read:
+                sheets_to_read = 0
+                sheet_desc = "first sheet"
+            else:
+                sheet_desc = f"default sheets {sheets_to_read}"
         else:
             sheets_to_read = 0  # First sheet only
             sheet_desc = "first sheet"
@@ -241,13 +261,59 @@ class StockExcelParser:
 
         # Handle multi-sheet result (dict) vs single sheet (DataFrame)
         if isinstance(read_result, dict):
-            # Multiple sheets - process each and concatenate
-            df = self._concat_sheets(read_result)
-            actual_sheet = f"multiple: {list(read_result.keys())}"
+            parsed_rows: list[ExcelStockRow] = []
+            total_rows_scanned = 0
+            first_mapping: dict[str, str] | None = None
+            parsed_sheet_names: list[str] = []
+
+            for actual_sheet, df in read_result.items():
+                sheet_rows, scanned, mapping = self._parse_dataframe(
+                    df=df,
+                    actual_sheet=str(actual_sheet),
+                    sheet_name=str(actual_sheet),
+                )
+                parsed_rows.extend(sheet_rows)
+                total_rows_scanned += scanned
+                parsed_sheet_names.append(str(actual_sheet))
+                if first_mapping is None:
+                    first_mapping = mapping
+
+            return ExcelParseResult(
+                rows=parsed_rows,
+                total_rows_scanned=total_rows_scanned,
+                non_empty_rows=len(parsed_rows),
+                column_mapping=first_mapping or {},
+                sheet_name=f"multiple: {parsed_sheet_names}",
+                file_path=str(self.file_path),
+            )
         else:
             # Single sheet
             df = read_result
             actual_sheet = sheet_name if isinstance(sheet_name, str) else "first"
+
+        parsed_rows, total_rows_scanned, mapping = self._parse_dataframe(
+            df=df,
+            actual_sheet=str(actual_sheet),
+            sheet_name=sheet_name if isinstance(sheet_name, str) else None,
+        )
+
+        return ExcelParseResult(
+            rows=parsed_rows,
+            total_rows_scanned=total_rows_scanned,
+            non_empty_rows=len(parsed_rows),
+            column_mapping=mapping,
+            sheet_name=str(actual_sheet),
+            file_path=str(self.file_path),
+        )
+
+    def _parse_dataframe(
+        self,
+        df: Any,
+        actual_sheet: str,
+        sheet_name: str | None,
+    ) -> tuple[list[ExcelStockRow], int, dict[str, str]]:
+        """Parse one pandas DataFrame using its own column mapping."""
+        import pandas as pd
 
         # Convert NaN to None for cleaner handling
         df = df.where(pd.notnull(df), None)
@@ -257,7 +323,7 @@ class StockExcelParser:
         logger.info(f"Found {len(headers)} columns in Excel")
 
         try:
-            self._column_mapping = find_column_mapping(headers)
+            column_mapping = find_column_mapping(headers)
         except Exception:
             logger.exception(
                 "Failed to build stock column mapping: file=%s, sheet=%s, headers=%s",
@@ -291,12 +357,15 @@ class StockExcelParser:
                     "article": "article",
                     "quantity": "quantity",
                 }
+                column_mapping = self._column_mapping
 
                 logger.info(
                     "Applied direct SKU/quantity mode: article='article', quantity='quantity'"
                 )
             else:
                 raise
+        else:
+            self._column_mapping = column_mapping
 
         # Convert to list of dicts
         all_rows = df.to_dict(orient="records")
@@ -308,7 +377,7 @@ class StockExcelParser:
 
         for idx, row_data in enumerate(all_rows, start=1):  # 1-based for display
             # Check for empty row
-            if is_empty_row(row_data, self._column_mapping):
+            if is_empty_row(row_data, column_mapping):
                 empty_streak += 1
                 if empty_streak >= MAX_EMPTY_STREAK:
                     logger.info(
@@ -319,8 +388,8 @@ class StockExcelParser:
 
             empty_streak = 0  # Reset on non-empty row
 
-            article_col = self._column_mapping.get("article")
-            quantity_col = self._column_mapping.get("quantity")
+            article_col = column_mapping.get("article")
+            quantity_col = column_mapping.get("quantity")
 
             # Extract sheet name from row data (set by _concat_sheets for multi-sheet)
             # or use the passed sheet_name for single sheet
@@ -339,14 +408,7 @@ class StockExcelParser:
                 )
             )
 
-        return ExcelParseResult(
-            rows=parsed_rows,
-            total_rows_scanned=len(all_rows),
-            non_empty_rows=len(parsed_rows),
-            column_mapping=self._column_mapping,
-            sheet_name=str(actual_sheet),
-            file_path=str(self.file_path),
-        )
+        return parsed_rows, len(all_rows), column_mapping
 
     def _concat_sheets(self, sheets_dict: dict[str, Any]) -> Any:
         """Concatenate multiple sheets into single DataFrame.

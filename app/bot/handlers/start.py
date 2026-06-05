@@ -20,6 +20,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
         "🔎 <b>Поиск товара</b> — найти по SKU или названию\n"
         "📋 <b>Проверить заявку</b> — проверить список SKU\n"
         "📂 <b>Загрузить Excel-заявку</b> — загрузить файл с заявкой\n\n"
+        "🧾 <b>Загрузить каталог</b> — обновить товары и цены\n\n"
         "Выберите действие:",
         reply_markup=main_menu_keyboard(),
         parse_mode="HTML",

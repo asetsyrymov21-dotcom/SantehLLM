@@ -14,14 +14,21 @@ DEFAULT_COLUMN_ALIASES: dict[str, list[str]] = {
         "title",
         "название",
         "наименование",
+        "наименавание",
         "имя",
         "name",
         "продукт",
         "модель",
         "model",
     ],
-    "price": ["price", "цена", "стоимость", "розница", "ррц"],
-    "discount_price": ["discount_price", "цена со скидкой", "акция", "sale_price"],
+    "price": ["price", "цена", "стоимость", "розница", "ррц", "ррц ( тенге)"],
+    "discount_price": [
+        "discount_price",
+        "цена со скидкой",
+        "цена со скидкой(тенге)",
+        "акция",
+        "sale_price",
+    ],
 }
 
 

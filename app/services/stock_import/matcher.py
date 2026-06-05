@@ -341,7 +341,7 @@ class StockMatcher:
             StockMatchReport with complete analysis
         """
         report = StockMatchReport(
-            total_rows_scanned=0,  # Will be set from parser result
+            total_rows_scanned=len(rows),
             non_empty_rows=len(rows),
             rows_with_article=0,
             rows_with_valid_normalized_sku=0,

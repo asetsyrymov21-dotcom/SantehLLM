@@ -16,3 +16,8 @@ def looks_like_main_product_sku(sku: str) -> bool:
         return True
 
     return False
+
+
+def _looks_like_main_product_sku(sku: str) -> bool:
+    """Compatibility alias for legacy PDF extractor modules."""
+    return looks_like_main_product_sku(sku)

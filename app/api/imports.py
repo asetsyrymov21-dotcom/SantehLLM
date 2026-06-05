@@ -8,8 +8,13 @@ from fastapi import APIRouter, Depends, File, UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api import deps
-from app.schemas import ImportCatalogResponse, StockImportResponse
+from app.schemas import (
+    CatalogExcelImportResponse,
+    ImportCatalogResponse,
+    StockImportResponse,
+)
 from app.services.import_service import ImportService
+from app.services.product_import.excel_import_service import import_excel_catalog_file
 from app.services.stock_import.excel_parser import StockExcelParser
 from app.services.stock_import.matcher import StockMatcher
 from app.services.stock_import.importer import StockImporter
@@ -17,6 +22,8 @@ from app.services.stock_import.importer import StockImporter
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/imports", tags=["imports"])
+
+MAX_EXCEL_UPLOAD_BYTES = 120 * 1024 * 1024
 
 
 @router.post("/catalog", response_model=ImportCatalogResponse)
@@ -27,6 +34,48 @@ def import_catalog(
     if not file.filename:
         raise HTTPException(status_code=400, detail="File is required")
     return service.import_catalog(file)
+
+
+@router.post("/catalog-excel", response_model=CatalogExcelImportResponse)
+def import_catalog_excel(
+    file: UploadFile = File(...),
+    header_row: int = 2,
+    session: Session = Depends(deps.get_session),
+) -> CatalogExcelImportResponse:
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="File is required")
+
+    if not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Only .xlsx files are supported")
+
+    content = file.file.read()
+    if len(content) > MAX_EXCEL_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Excel file is too large")
+
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        result = import_excel_catalog_file(
+            session,
+            tmp_path,
+            filename=file.filename,
+            header_row=header_row,
+        )
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.exception(
+            "Catalog Excel import failed: file=%s filename=%s",
+            tmp_path,
+            file.filename,
+        )
+        raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
+    finally:
+        os.unlink(tmp_path)
+
+    return CatalogExcelImportResponse(**result.__dict__)
 
 
 @router.post("/inventory", response_model=StockImportResponse)

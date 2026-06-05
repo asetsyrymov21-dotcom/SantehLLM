@@ -117,14 +117,7 @@ def persist_products(
 
     for product_dict in built_products:
         try:
-            # Skip engineering SKUs marked for skip
             base_attrs = product_dict.get("base_attributes") or {}
-            if base_attrs.get("_skipped_reason") == "engineering_sku_out_of_scope":
-                logger.info(
-                    f"[PERSIST] SKIPPED engineering SKU: {product_dict.get('sku')}"
-                )
-                continue
-
             product_create = _convert_to_product_create(product_dict)
 
             # Track enrichment needs

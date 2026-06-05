@@ -70,6 +70,24 @@ class StockImportResponse(BaseModel):
     errors: int
 
 
+class CatalogExcelImportResponse(BaseModel):
+    filename: str
+    sheet: str
+    header_row: int
+    raw_rows: int
+    mapped_rows: int
+    built_products: int
+    inserted: int
+    updated: int
+    failed: int
+    needs_pdf_enrichment: int
+    name_fallback_to_sku: int
+    title_empty_in_excel: int
+    weak_title_after_normalize: int
+    title_lost_in_mapper: int
+    title_column_not_mapped: int
+
+
 class RagQueryRequest(BaseModel):
     query: str = Field(..., min_length=1)
     limit: int = Field(default=5, ge=1, le=50)
@@ -138,6 +156,7 @@ __all__ = [
     "ImportCatalogResponse",
     "ImportCatalogError",
     "StockImportResponse",
+    "CatalogExcelImportResponse",
     "RagQueryRequest",
     "RagQueryResponse",
     "RagQueryHit",

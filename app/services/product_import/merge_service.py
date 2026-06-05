@@ -66,10 +66,7 @@ def extract_attributes_from_name(name: str | None) -> dict[str, Any]:
 
 
 def _is_engineering_sku(sku: str | None) -> bool:
-    """Check if SKU is from engineering catalog (out of scope for this patch).
-
-    Engineering SKUs like F101.2004 are from a different catalog.
-    """
+    """Check if SKU is from engineering catalog."""
     if not sku:
         return False
     # Engineering SKUs contain dots and follow different patterns
@@ -129,7 +126,7 @@ class MergeService:
         3. Missing description does NOT cause skip
         4. If title/description missing or weak -> needs_pdf_enrichment = true
         5. Save short name/title from Excel if present
-        6. Engineering SKUs (F101.2004) are out of scope
+        6. Engineering SKUs (F101.2004) are imported like any other SKU
 
         Args:
             excel_row: Normalized Excel row data
@@ -145,39 +142,6 @@ class MergeService:
         logger.info(
             f"[EXCEL IMPORT] Processing SKU={sku}, title_present={title is not None}, price_present={price is not None}"
         )
-
-        # Skip engineering SKUs - out of scope for this patch
-        if _is_engineering_sku(sku):
-            logger.info(f"[EXCEL IMPORT] SKIPPED engineering SKU (out of scope): {sku}")
-            return {
-                "product_id": sku,
-                "sku": sku,
-                "title": title,
-                "brand": None,
-                "category": None,
-                "description": None,
-                "base_attributes": {"_skipped_reason": "engineering_sku_out_of_scope"},
-                "extended_attributes": {},
-                "price": price,
-                "discount_price": excel_row.get("discount_price"),
-                "stock_qty": excel_row.get("stock_qty"),
-                "stock_status": "unknown",
-                "currency": excel_row.get("currency", "KZT"),
-                "pdf_pages": [],
-                "images": [],
-                "source_refs": [
-                    {
-                        "source": "excel",
-                        "file": excel_row.get("source_file", ""),
-                        "sheet": excel_row.get("source_sheet", ""),
-                        "row_index": excel_row.get("source_row_index", 0),
-                    }
-                ],
-                "merge_status": "skipped_engineering_sku",
-                "confidence": 0.0,
-                "field_provenance": {},
-                "merge_decisions": [],
-            }
 
         # Extract from name
         category = extract_category_from_name(title)

@@ -20,3 +20,7 @@ class BatchSKUStates(StatesGroup):
 
 class StockImportStates(StatesGroup):
     awaiting_stock_file = State()
+
+
+class CatalogImportStates(StatesGroup):
+    awaiting_catalog_file = State()

@@ -157,11 +157,7 @@ def build_products_with_diag(
     for idx, raw_row, mapped_row, norm_row in normalized_rows_with_meta:
         product = service.build_product_from_excel(norm_row)
 
-        # Skip engineering SKUs
         base_attrs = product.get("base_attributes") or {}
-        if base_attrs.get("_skipped_reason") == "engineering_sku_out_of_scope":
-            continue
-
         products.append(product)
 
         # Check if problematic (needs enrichment or weak title)
