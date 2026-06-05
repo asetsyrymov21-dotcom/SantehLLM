@@ -15,7 +15,11 @@ from app.schemas import (
 )
 from app.services.import_service import ImportService
 from app.services.product_import.excel_import_service import import_excel_catalog_file
-from app.services.stock_import.excel_parser import StockExcelParser
+from app.services.stock_import.excel_parser import (
+    DEFAULT_FRAP_SHEETS,
+    FALLBACK_FRAP_SHEETS,
+    StockExcelParser,
+)
 from app.services.stock_import.text_parser import parse_stock_text_file
 from app.services.stock_import.matcher import StockMatcher
 from app.services.stock_import.importer import StockImporter
@@ -32,33 +36,55 @@ class StockQuantityColumnMissingError(ValueError):
     """Raised when an Excel file has SKU/article headers but no stock column."""
 
 
+def _stock_sheet_names_to_try(path: str) -> list[str]:
+    import pandas as pd
+
+    sheet_names = pd.ExcelFile(path, engine="openpyxl").sheet_names
+    priority_names = [
+        sheet
+        for sheet in [*DEFAULT_FRAP_SHEETS, *FALLBACK_FRAP_SHEETS]
+        if sheet in sheet_names
+    ]
+    return [*priority_names, *[sheet for sheet in sheet_names if sheet not in priority_names]]
+
+
 def _parse_stock_excel_file(path: str) -> object:
     last_error: Exception | None = None
     article_only_result: object | None = None
 
-    for header_row in STOCK_HEADER_ROWS_TO_TRY:
-        parser = StockExcelParser(path, header_row=header_row)
-        try:
-            parse_result = parser.parse(use_default_sheets=True)
-        except ValueError as e:
-            last_error = e
-            logger.info(
-                "Inventory parse failed with header_row=%s: %s",
-                header_row,
-                e,
-            )
-            continue
+    for sheet_name in _stock_sheet_names_to_try(path):
+        for header_row in STOCK_HEADER_ROWS_TO_TRY:
+            parser = StockExcelParser(path, header_row=header_row)
+            try:
+                parse_result = parser.parse(
+                    sheet_name=sheet_name,
+                    use_default_sheets=False,
+                )
+            except ValueError as e:
+                last_error = e
+                logger.info(
+                    "Inventory parse failed with sheet=%s header_row=%s: %s",
+                    sheet_name,
+                    header_row,
+                    e,
+                )
+                continue
 
-        if "quantity" not in parse_result.column_mapping:
-            article_only_result = article_only_result or parse_result
+            if "quantity" not in parse_result.column_mapping:
+                article_only_result = article_only_result or parse_result
+                logger.info(
+                    "Inventory parse found article but no quantity: sheet=%s header_row=%s",
+                    sheet_name,
+                    header_row,
+                )
+                continue
+
             logger.info(
-                "Inventory parse found article but no quantity: header_row=%s",
+                "Inventory headers detected with sheet=%s header_row=%s",
+                sheet_name,
                 header_row,
             )
-            continue
-
-        logger.info("Inventory headers detected with header_row=%s", header_row)
-        return parse_result
+            return parse_result
 
     if article_only_result is not None:
         header_columns = (

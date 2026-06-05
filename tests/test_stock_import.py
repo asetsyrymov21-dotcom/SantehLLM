@@ -116,6 +116,34 @@ class TestStockExcelParser:
         assert result.rows[0].raw_article == "F2002-B"
         assert result.rows[0].raw_quantity == "12"
 
+    def test_stock_import_scans_second_sheet(self, tmp_path):
+        """Stock data may live on a later worksheet, not the first one."""
+        from openpyxl import Workbook
+
+        file_path = tmp_path / "second-sheet-stock.xlsx"
+        wb = Workbook()
+
+        price_ws = wb.active
+        price_ws.title = "Прайс"
+        price_ws.append(["Артикул", "Наименование", "РРЦ", "Цена со скидкой"])
+        price_ws.append(["F1002-B", "Смеситель", 9520, 7140])
+
+        stock_ws = wb.create_sheet("Остатки")
+        stock_ws.append(["", "служебная строка", ""])
+        stock_ws.append(["Артикул", "Остаток", "Комментарий"])
+        stock_ws.append(["F1002-B", "4", ""])
+        stock_ws.append(["F2002-B", "", "empty means zero"])
+
+        wb.save(file_path)
+
+        result = _parse_stock_excel_file(str(file_path))
+
+        assert result.sheet_name == "Остатки"
+        assert result.column_mapping["article"] == "Артикул"
+        assert result.column_mapping["quantity"] == "Остаток"
+        assert [row.raw_article for row in result.rows] == ["F1002-B", "F2002-B"]
+        assert [row.raw_quantity for row in result.rows] == ["4", None]
+
 
 class TestStockMatcher:
     """Test matching logic."""
