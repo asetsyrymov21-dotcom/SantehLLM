@@ -6,7 +6,7 @@ from unittest.mock import Mock, MagicMock
 from app.services.stock_import import StockExcelParser, StockMatcher, StockImporter
 from app.services.stock_import.excel_parser import ExcelStockRow
 from app.api.imports import _parse_stock_excel_file, StockQuantityColumnMissingError
-from app.bot.handlers.stock_import import _format_report
+from app.bot.stock_report import format_stock_import_report
 
 
 class TestStockExcelParser:
@@ -180,7 +180,7 @@ class TestStockImportBotReport:
     """Test Telegram stock import report text."""
 
     def test_empty_quantity_report_says_out_of_stock(self):
-        text = _format_report(
+        text = format_stock_import_report(
             {
                 "rows_scanned": 10,
                 "updated": 1,
