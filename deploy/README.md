@@ -50,3 +50,31 @@ Add these repository secrets in GitHub:
 
 On every push to `main`, GitHub Actions will SSH into the VPS, pull the latest code,
 run migrations, rebuild containers, and restart the API and bot.
+
+## PostgreSQL backups
+
+The VPS deploy script creates a PostgreSQL backup before running migrations or
+restarting the app:
+
+```text
+/opt/santeh/backups/postgres/santeh-postgres-YYYYMMDDTHHMMSSZ.dump
+```
+
+The backup uses PostgreSQL custom format, so restore it with `pg_restore`.
+Defaults can be changed when running the deploy:
+
+```bash
+BACKUP_DIR=/opt/santeh/backups/postgres BACKUP_KEEP_DAYS=14 APP_DIR=/opt/santeh bash deploy/deploy_on_vps.sh
+```
+
+Restore example on the VPS:
+
+```bash
+cd /opt/santeh
+docker compose -f docker-compose.vps.yml up -d db
+docker compose -f docker-compose.vps.yml exec -T db sh -c \
+  'dropdb -U "${POSTGRES_USER:-postgres}" "${POSTGRES_DB:-santeh}" --if-exists && createdb -U "${POSTGRES_USER:-postgres}" "${POSTGRES_DB:-santeh}"'
+docker compose -f docker-compose.vps.yml exec -T db sh -c \
+  'pg_restore -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-santeh}" --clean --if-exists' \
+  < backups/postgres/santeh-postgres-YYYYMMDDTHHMMSSZ.dump
+```

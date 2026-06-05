@@ -6,7 +6,12 @@ from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
 
 from app.bot.api_client import APIClient
-from app.bot.states import CatalogImportStates
+from app.bot.keyboards import (
+    IMPORT_CATALOG_BUTTON,
+    MAIN_MENU_BUTTONS,
+    main_menu_keyboard,
+)
+from app.bot.states import CatalogImportStates, UserFlow
 
 router = Router()
 
@@ -16,16 +21,6 @@ _INSTRUCTION = (
     "Файл должен содержать колонки с артикулом, названием и ценой.\n"
     "Для текущих прайсов заголовки ожидаются на 3-й строке Excel."
 )
-
-_NAV_BUTTONS = {
-    "🏠 Главное меню",
-    "🔎 Поиск товара",
-    "📋 Проверить заявку",
-    "📂 Загрузить Excel-заявку",
-    "🧾 Загрузить каталог",
-    "📥 Загрузить остатки",
-}
-
 
 def _format_report(data: dict) -> str:
     built = data.get("built_products", 0)
@@ -59,10 +54,15 @@ def _format_report(data: dict) -> str:
     return "\n".join(lines)
 
 
-@router.message(F.text == "🧾 Загрузить каталог")
+@router.message(F.text == IMPORT_CATALOG_BUTTON)
 async def enter_catalog_import_mode(message: types.Message, state: FSMContext):
-    await state.set_state(CatalogImportStates.awaiting_catalog_file)
-    await message.answer(_INSTRUCTION, parse_mode="HTML")
+    await state.clear()
+    await state.set_state(UserFlow.main_menu)
+    await message.answer(
+        "🧾 Загрузку каталога выполняет администратор.\n\n"
+        "Актуальное меню:",
+        reply_markup=main_menu_keyboard(),
+    )
 
 
 @router.message(CatalogImportStates.awaiting_catalog_file, F.document)
@@ -98,11 +98,10 @@ async def handle_catalog_file(message: types.Message, state: FSMContext):
 
 @router.message(CatalogImportStates.awaiting_catalog_file, F.text)
 async def catalog_import_text_fallback(message: types.Message, state: FSMContext):
-    if message.text in _NAV_BUTTONS:
+    if message.text in MAIN_MENU_BUTTONS:
         await state.clear()
         return
     await message.answer(
         "📎 Пожалуйста, отправьте файл <b>.xlsx</b> с каталогом",
         parse_mode="HTML",
     )
-

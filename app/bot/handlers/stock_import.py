@@ -7,6 +7,7 @@ from aiogram.fsm.context import FSMContext
 
 from app.bot.states import StockImportStates
 from app.bot.api_client import APIClient
+from app.bot.keyboards import IMPORT_STOCK_BUTTON, MAIN_MENU_BUTTONS
 
 router = Router()
 
@@ -19,17 +20,6 @@ _INSTRUCTION = (
     "Поддерживаемые бренды: <b>FRAP</b> и <b>GAPPO</b>.\n"
     "Первая строка — заголовки."
 )
-
-# Кнопки, которые должны прерывать ожидание файла
-_NAV_BUTTONS = {
-    "🏠 Главное меню",
-    "🔎 Поиск товара",
-    "📋 Проверить заявку",
-    "📂 Загрузить Excel-заявку",
-    "🧾 Загрузить каталог",
-    "📥 Загрузить остатки",
-}
-
 
 def _format_report(data: dict) -> str:
     rows = data.get("rows_scanned", 0)
@@ -68,7 +58,7 @@ def _format_report(data: dict) -> str:
     return "\n".join(lines)
 
 
-@router.message(F.text == "📥 Загрузить остатки")
+@router.message(F.text == IMPORT_STOCK_BUTTON)
 async def enter_stock_import_mode(message: types.Message, state: FSMContext):
     await state.set_state(StockImportStates.awaiting_stock_file)
     await message.answer(_INSTRUCTION, parse_mode="HTML")
@@ -112,7 +102,7 @@ async def handle_stock_file(message: types.Message, state: FSMContext):
 
 @router.message(StockImportStates.awaiting_stock_file, F.text)
 async def stock_import_text_fallback(message: types.Message, state: FSMContext):
-    if message.text in _NAV_BUTTONS:
+    if message.text in MAIN_MENU_BUTTONS:
         await state.clear()
         return
     await message.answer(

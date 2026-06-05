@@ -1,16 +1,33 @@
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 
 
+MAIN_MENU_BUTTON = "🏠 Главное меню"
+SEARCH_PRODUCT_BUTTON = "🔎 Поиск товара"
+CHECK_REQUEST_BUTTON = "📋 Проверить заявку"
+CHECK_EXCEL_REQUEST_BUTTON = "📂 Проверить Excel-заявку"
+LEGACY_CHECK_EXCEL_REQUEST_BUTTON = "📂 Загрузить Excel-заявку"
+IMPORT_CATALOG_BUTTON = "🧾 Загрузить каталог"
+IMPORT_STOCK_BUTTON = "📥 Загрузить остатки"
+
+MAIN_MENU_BUTTONS = {
+    MAIN_MENU_BUTTON,
+    SEARCH_PRODUCT_BUTTON,
+    CHECK_REQUEST_BUTTON,
+    CHECK_EXCEL_REQUEST_BUTTON,
+    LEGACY_CHECK_EXCEL_REQUEST_BUTTON,
+    IMPORT_CATALOG_BUTTON,
+    IMPORT_STOCK_BUTTON,
+}
+
+
 # ========== Reply Keyboards ==========
 
 
 def main_menu_keyboard():
     kb = ReplyKeyboardBuilder()
-    kb.button(text="🔎 Поиск товара")
-    kb.button(text="📋 Проверить заявку")
-    kb.button(text="📂 Загрузить Excel-заявку")
-    kb.button(text="🧾 Загрузить каталог")
-    kb.button(text="📥 Загрузить остатки")
+    kb.button(text=SEARCH_PRODUCT_BUTTON)
+    kb.button(text=CHECK_REQUEST_BUTTON)
+    kb.button(text=IMPORT_STOCK_BUTTON)
     kb.adjust(1)
     return kb.as_markup(
         resize_keyboard=True, input_field_placeholder="Выберите действие..."
@@ -20,7 +37,7 @@ def main_menu_keyboard():
 def search_input_keyboard():
     kb = ReplyKeyboardBuilder()
     kb.button(text="⬅️ Назад")
-    kb.button(text="🏠 Главное меню")
+    kb.button(text=MAIN_MENU_BUTTON)
     kb.adjust(2)
     return kb.as_markup(
         resize_keyboard=True, input_field_placeholder="Введите артикул или название..."
@@ -31,7 +48,7 @@ def search_results_keyboard():
     kb = ReplyKeyboardBuilder()
     kb.button(text="🔎 Новый поиск")
     kb.button(text="⬅️ Назад")
-    kb.button(text="🏠 Главное меню")
+    kb.button(text=MAIN_MENU_BUTTON)
     kb.adjust(2, 1)
     return kb.as_markup(
         resize_keyboard=True, input_field_placeholder="Выберите товар из списка выше..."
@@ -42,7 +59,7 @@ def product_view_keyboard():
     kb = ReplyKeyboardBuilder()
     kb.button(text="⬅️ Назад")
     kb.button(text="🛒 Купить")
-    kb.button(text="🏠 Главное меню")
+    kb.button(text=MAIN_MENU_BUTTON)
     kb.adjust(2, 1)
     return kb.as_markup(resize_keyboard=True)
 

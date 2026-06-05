@@ -218,6 +218,23 @@ Expected:
 - app containers do not require root unless justified
 - production `.env` exists only on the server
 
+## Backups
+
+For stateful services, create a backup before migrations and service restarts.
+
+PostgreSQL baseline:
+
+```bash
+docker compose up -d db
+docker compose exec -T db sh -c \
+  'pg_dump -U "${POSTGRES_USER:-postgres}" -d "${POSTGRES_DB:-app}" --format=custom' \
+  > backups/postgres/app-postgres-$(date -u +%Y%m%dT%H%M%SZ).dump
+```
+
+Keep restore instructions next to the deploy instructions, test them after the
+first production import, and copy critical backups off the VPS when the data
+becomes business-critical.
+
 ## Project Checklist
 
 For every new project, decide explicitly:
@@ -232,4 +249,3 @@ For every new project, decide explicitly:
 - Is firewall deny-by-default?
 - Are containers non-root where practical?
 - Is there a backup/restore plan for production data?
-
