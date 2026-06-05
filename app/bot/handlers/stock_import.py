@@ -4,6 +4,7 @@ import io
 
 import httpx
 from aiogram import Router, types, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 
 from app.bot.states import StockImportStates
@@ -15,6 +16,9 @@ from app.bot.handlers.menu_actions import (
 )
 
 router = Router()
+
+MAX_TELEGRAM_DOWNLOAD_BYTES = 20 * 1024 * 1024
+
 
 def _format_report(data: dict) -> str:
     rows = data.get("rows_scanned", 0)
@@ -69,6 +73,15 @@ async def handle_stock_file(message: types.Message, state: FSMContext):
         )
         return
 
+    if doc.file_size and doc.file_size > MAX_TELEGRAM_DOWNLOAD_BYTES:
+        await message.answer(
+            "❌ Файл слишком большой для загрузки через Telegram-бота.\n\n"
+            "Telegram Bot API не даёт боту скачать такие большие файлы. "
+            "Уменьшите Excel-файл до 20 МБ или загрузите остатки через сервер/админский импорт.",
+            parse_mode="HTML",
+        )
+        return
+
     await message.answer(
         "⏳ Читаю файл, запускаю импорт...\n\n"
         "Если файл большой, это может занять несколько минут."
@@ -76,7 +89,17 @@ async def handle_stock_file(message: types.Message, state: FSMContext):
 
     # Скачиваем файл в память
     file_io = io.BytesIO()
-    await message.bot.download(doc, destination=file_io)
+    try:
+        await message.bot.download(doc, destination=file_io)
+    except TelegramBadRequest as e:
+        if "file is too big" in str(e).lower():
+            await message.answer(
+                "❌ Файл слишком большой для загрузки через Telegram-бота.\n\n"
+                "Уменьшите Excel-файл до 20 МБ или загрузите остатки через сервер/админский импорт.",
+                parse_mode="HTML",
+            )
+            return
+        raise
     file_bytes = file_io.getvalue()
 
     api = APIClient()
