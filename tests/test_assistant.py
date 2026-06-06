@@ -60,6 +60,18 @@ def test_detect_transliterated_advisory_question():
     assert intent == AssistantIntent.ADVISORY_QUESTION
 
 
+def test_detect_what_is_mixing_unit_question():
+    intent = detect_intent("что такое смесительный узел?")
+
+    assert intent == AssistantIntent.ADVISORY_QUESTION
+
+
+def test_detect_transliterated_what_is_mixing_unit_question():
+    intent = detect_intent("chto takoe smesitelnyi uzel?")
+
+    assert intent == AssistantIntent.ADVISORY_QUESTION
+
+
 def test_detect_product_search_question():
     intent = detect_intent("покажи белые смесители для кухни")
 

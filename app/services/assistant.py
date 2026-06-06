@@ -57,6 +57,8 @@ ADVISORY_KEYWORDS = {
     "нужно",
     "нужны",
     "какие детали",
+    "что такое",
+    "смесительный узел",
     "komplekt",
     "komplektuyusch",
     "komplektuiusch",
@@ -67,6 +69,9 @@ ADVISORY_KEYWORDS = {
     "nuzhno",
     "nuzhny",
     "kakie detali",
+    "chto takoe",
+    "smesitelnyi uzel",
+    "smesitelnyy uzel",
     "teplogo pola",
 }
 HELP_KEYWORDS = {
