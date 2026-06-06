@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import html
+import logging
+
 from aiogram import F, Router, types
 from aiogram.fsm.context import FSMContext
 
@@ -14,9 +18,11 @@ from app.bot.states import AssistantStates
 from app.services.assistant import AssistantIntent, parse_assistant_question
 from app.services.request_check.formatter import format_checked_lines_for_chat
 from app.services.request_check.schemas import CheckedLine
+from app.utils.llm import generate_assistant_draft_answer
 from app.utils.sku_utils import normalize_sku
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 ASSISTANT_INSTRUCTION = (
     "💬 <b>Ассистент</b>\n\n"
@@ -84,7 +90,9 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
                 )
                 return
 
-            answer = _answer_help_question(question.text)
+            answer = await _generate_help_answer(
+                api, question.text, question.intent.value
+            )
             await _store_memory_draft(api, question.text, question.intent.value, answer)
             await message.answer(
                 answer,
@@ -108,11 +116,11 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
         products = await api.search_products(question.text)
         advisory_answer = None
         if question.intent == AssistantIntent.ADVISORY_QUESTION:
+            generated_answer = await _generate_advisory_answer(
+                api, question.text, question.intent.value, products
+            )
             if products:
-                advisory_answer = (
-                    "Пока я не собираю комплект автоматически, но нашёл товары, "
-                    "которые могут подойти. Выберите позицию, и я покажу карточку."
-                )
+                advisory_answer = generated_answer or _advisory_with_results_answer()
                 await _store_memory_draft(
                     api,
                     question.text,
@@ -121,9 +129,10 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
                     source_product_ids=[
                         int(p["id"]) for p in products[:10] if p.get("id")
                     ],
+                    meta_json={"source": "llm"} if generated_answer else None,
                 )
             else:
-                advisory_answer = _advisory_no_results_answer()
+                advisory_answer = generated_answer or _advisory_no_results_answer()
                 await _store_memory_draft(
                     api,
                     question.text,
@@ -159,10 +168,7 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
     if question.intent == AssistantIntent.ADVISORY_QUESTION:
         await message.answer(
             advisory_answer
-            or (
-                "Пока я не собираю комплект автоматически, но нашёл товары, "
-                "которые могут подойти. Выберите позицию, и я покажу карточку."
-            ),
+            or _advisory_with_results_answer(),
             reply_markup=assistant_input_keyboard(),
         )
 
@@ -269,6 +275,13 @@ def _answer_help_question(text: str) -> str:
     )
 
 
+def _advisory_with_results_answer() -> str:
+    return (
+        "Пока я не собираю комплект автоматически, но нашёл товары, "
+        "которые могут подойти. Выберите позицию, и я покажу карточку."
+    )
+
+
 def _advisory_no_results_answer() -> str:
     return (
         "Пока я не нашёл подходящие товары в каталоге.\n\n"
@@ -276,6 +289,104 @@ def _advisory_no_results_answer() -> str:
         "или назначение. Например: <code>труба 25</code> или "
         "<code>белый смеситель для кухни</code>."
     )
+
+
+async def _generate_help_answer(api: APIClient, question: str, intent: str) -> str:
+    generated = await _generate_llm_draft(
+        question=question,
+        intent=intent,
+        help_context=_assistant_help_context(),
+        rag_context=await _lookup_rag_context(api, question),
+    )
+    return generated or _answer_help_question(question)
+
+
+async def _generate_advisory_answer(
+    api: APIClient,
+    question: str,
+    intent: str,
+    products: list[dict] | None,
+) -> str | None:
+    return await _generate_llm_draft(
+        question=question,
+        intent=intent,
+        help_context=_assistant_help_context(),
+        rag_context=await _lookup_rag_context(api, question),
+        product_context=_format_product_context(products or []),
+    )
+
+
+async def _generate_llm_draft(
+    *,
+    question: str,
+    intent: str,
+    help_context: str = "",
+    rag_context: str = "",
+    product_context: str = "",
+) -> str | None:
+    try:
+        answer = await asyncio.to_thread(
+            generate_assistant_draft_answer,
+            question=question,
+            intent=intent,
+            help_context=help_context,
+            rag_context=rag_context,
+            product_context=product_context,
+        )
+    except Exception:
+        logger.exception("Assistant LLM draft fallback used")
+        return None
+
+    clean_answer = (answer or "").strip()
+    if not clean_answer:
+        return None
+    return html.escape(clean_answer)
+
+
+def _assistant_help_context() -> str:
+    return "\n".join(
+        [
+            "Остатки: менеджер открывает 'Загрузить остатки' и отправляет Excel-файл.",
+            "Для импорта остатков нужны колонки с артикулом и количеством: Артикул, SKU, Количество, Остаток, Qty или Шт.",
+            "Сейчас склад обновляется для брендов FRAP и GAPPO.",
+            "Если SKU не найден, обычно артикула нет в каталоге или он записан иначе; стоит попробовать без точек/дефисов или передать SKU администратору.",
+            "Каталог загружает администратор; менеджеру доступны поиск, проверка заявки и остатки.",
+            "Остатки и цены нельзя придумывать: они проверяются только по базе и точному SKU.",
+        ]
+    )
+
+
+def _format_product_context(products: list[dict]) -> str:
+    if not products:
+        return ""
+
+    lines: list[str] = []
+    for index, product in enumerate(products[:10], start=1):
+        parts = [
+            f"{index}. id={product.get('id')}",
+            f"sku={product.get('sku') or 'N/A'}",
+            f"name={product.get('name') or 'N/A'}",
+            f"brand={product.get('brand') or 'N/A'}",
+        ]
+        lines.append("; ".join(parts))
+    return "\n".join(lines)
+
+
+async def _lookup_rag_context(api: APIClient, question: str) -> str:
+    try:
+        result = await api.query_rag(question, limit=3)
+    except Exception:
+        return ""
+
+    hits = result.get("hits") or []
+    blocks: list[str] = []
+    for hit in hits[:3]:
+        title = hit.get("document_title") or "N/A"
+        text = (hit.get("text") or "").strip()
+        if not text:
+            continue
+        blocks.append(f"[{title}]\n{text[:1200]}")
+    return "\n---\n".join(blocks)
 
 
 async def _lookup_memory_answer(

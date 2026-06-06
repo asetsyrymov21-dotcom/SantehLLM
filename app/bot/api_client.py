@@ -18,6 +18,14 @@ class APIClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def query_rag(self, query: str, limit: int = 3) -> dict:
+        resp = await self.client.post(
+            "/rag/query",
+            json={"query": query, "limit": limit},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     async def get_product(self, product_id: int):
         resp = await self.client.get(f"/products/{product_id}")
         resp.raise_for_status()
