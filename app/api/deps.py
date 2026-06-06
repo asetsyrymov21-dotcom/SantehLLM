@@ -12,6 +12,7 @@ from app.services.search import SearchService
 from app.services.document import DocumentService
 from app.services.import_service import ImportService
 from app.services.rag import RagService
+from app.services.assistant_memory import AssistantMemoryService
 
 
 def get_session() -> Generator[Session, None, None]:
@@ -51,3 +52,7 @@ def get_import_service(session: SessionDep) -> ImportService:
 
 def get_rag_service(session: SessionDep) -> RagService:
     return RagService(session)
+
+
+def get_assistant_memory_service(session: SessionDep) -> AssistantMemoryService:
+    return AssistantMemoryService(session)

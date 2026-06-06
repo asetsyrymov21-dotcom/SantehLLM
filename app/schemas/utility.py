@@ -154,6 +154,41 @@ class RagAskResponse(BaseModel):
     sources: List[RagSource]
 
 
+class AssistantMemoryLookupRequest(BaseModel):
+    question: str = Field(..., min_length=1)
+    intent: str | None = None
+    status: str = "approved"
+
+
+class AssistantMemoryEntry(BaseModel):
+    id: int
+    normalized_question: str
+    raw_question_example: str
+    intent: str
+    answer_text: str
+    source_product_ids: List[int] = Field(default_factory=list)
+    source_document_ids: List[int] = Field(default_factory=list)
+    status: str
+    hit_count: int
+
+    model_config = {"from_attributes": True}
+
+
+class AssistantMemoryLookupResponse(BaseModel):
+    found: bool
+    entry: AssistantMemoryEntry | None = None
+
+
+class AssistantMemoryStoreRequest(BaseModel):
+    question: str = Field(..., min_length=1)
+    intent: str
+    answer_text: str = Field(..., min_length=1)
+    source_product_ids: List[int] = Field(default_factory=list)
+    source_document_ids: List[int] = Field(default_factory=list)
+    status: str = "draft"
+    meta_json: dict[str, Any] | None = None
+
+
 __all__ = [
     "SearchRequest",
     "SearchResponse",
@@ -173,4 +208,8 @@ __all__ = [
     "RagIngestTextResponse",
     "RagAskRequest",
     "RagAskResponse",
+    "AssistantMemoryLookupRequest",
+    "AssistantMemoryLookupResponse",
+    "AssistantMemoryStoreRequest",
+    "AssistantMemoryEntry",
 ]

@@ -88,3 +88,41 @@ class APIClient:
         )
         resp.raise_for_status()
         return resp.json()
+
+    async def lookup_assistant_memory(
+        self,
+        question: str,
+        intent: str | None = None,
+        status: str = "approved",
+    ) -> dict:
+        resp = await self.client.post(
+            "/assistant/memory/lookup",
+            json={"question": question, "intent": intent, "status": status},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def store_assistant_memory(
+        self,
+        question: str,
+        intent: str,
+        answer_text: str,
+        source_product_ids: list[int] | None = None,
+        source_document_ids: list[int] | None = None,
+        status: str = "draft",
+        meta_json: dict | None = None,
+    ) -> dict:
+        resp = await self.client.post(
+            "/assistant/memory/store",
+            json={
+                "question": question,
+                "intent": intent,
+                "answer_text": answer_text,
+                "source_product_ids": source_product_ids or [],
+                "source_document_ids": source_document_ids or [],
+                "status": status,
+                "meta_json": meta_json,
+            },
+        )
+        resp.raise_for_status()
+        return resp.json()

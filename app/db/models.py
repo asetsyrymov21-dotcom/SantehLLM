@@ -56,6 +56,28 @@ class UserRole(str, enum.Enum):
     VIEWER = "viewer"
 
 
+class AssistantQACache(TimestampMixin, Base):
+    __tablename__ = "assistant_qa_cache"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    normalized_question: Mapped[str] = mapped_column(String(512), unique=True, nullable=False)
+    raw_question_example: Mapped[str] = mapped_column(Text, nullable=False)
+    intent: Mapped[str] = mapped_column(String(64), nullable=False)
+    answer_text: Mapped[str] = mapped_column(Text, nullable=False)
+    source_product_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    source_document_ids: Mapped[Optional[list]] = mapped_column(JSON, nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    hit_count: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    last_used_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    meta_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+
+    __table_args__ = (
+        Index("ix_assistant_qa_cache_status", "status"),
+        Index("ix_assistant_qa_cache_intent", "intent"),
+        Index("ix_assistant_qa_cache_last_used", "last_used_at"),
+    )
+
+
 class Product(TimestampMixin, Base):
     __tablename__ = "products"
 
@@ -234,4 +256,5 @@ __all__ = [
     "DocumentStatus",
     "SourceType",
     "UserRole",
+    "AssistantQACache",
 ]

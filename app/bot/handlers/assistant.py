@@ -73,14 +73,64 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
             return
 
         if question.intent == AssistantIntent.HELP_QUESTION:
+            cached_answer = await _lookup_memory_answer(
+                api, question.text, question.intent.value
+            )
+            if cached_answer:
+                await message.answer(
+                    cached_answer,
+                    reply_markup=assistant_input_keyboard(),
+                    parse_mode="HTML",
+                )
+                return
+
+            answer = _answer_help_question(question.text)
+            await _store_memory_draft(api, question.text, question.intent.value, answer)
             await message.answer(
-                _answer_help_question(question.text),
+                answer,
                 reply_markup=assistant_input_keyboard(),
                 parse_mode="HTML",
             )
             return
 
+        if question.intent == AssistantIntent.ADVISORY_QUESTION:
+            cached_answer = await _lookup_memory_answer(
+                api, question.text, question.intent.value
+            )
+            if cached_answer:
+                await message.answer(
+                    cached_answer,
+                    reply_markup=assistant_input_keyboard(),
+                    parse_mode="HTML",
+                )
+                return
+
         products = await api.search_products(question.text)
+        advisory_answer = None
+        if question.intent == AssistantIntent.ADVISORY_QUESTION:
+            if products:
+                advisory_answer = (
+                    "Пока я не собираю комплект автоматически, но нашёл товары, "
+                    "которые могут подойти. Выберите позицию, и я покажу карточку."
+                )
+                await _store_memory_draft(
+                    api,
+                    question.text,
+                    question.intent.value,
+                    advisory_answer,
+                    source_product_ids=[
+                        int(p["id"]) for p in products[:10] if p.get("id")
+                    ],
+                )
+            else:
+                advisory_answer = _advisory_no_results_answer()
+                await _store_memory_draft(
+                    api,
+                    question.text,
+                    question.intent.value,
+                    advisory_answer,
+                    meta_json={"reason": "no_product_candidates"},
+                )
     except Exception as exc:
         await message.answer(
             f"❌ Ошибка ассистента: {exc}",
@@ -93,7 +143,7 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
     if not products:
         if question.intent == AssistantIntent.ADVISORY_QUESTION:
             await message.answer(
-                _advisory_no_results_answer(),
+                advisory_answer or _advisory_no_results_answer(),
                 reply_markup=assistant_input_keyboard(),
                 parse_mode="HTML",
             )
@@ -108,8 +158,11 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
 
     if question.intent == AssistantIntent.ADVISORY_QUESTION:
         await message.answer(
-            "Пока я не собираю комплект автоматически, но нашёл товары, "
-            "которые могут подойти. Выберите позицию, и я покажу карточку.",
+            advisory_answer
+            or (
+                "Пока я не собираю комплект автоматически, но нашёл товары, "
+                "которые могут подойти. Выберите позицию, и я покажу карточку."
+            ),
             reply_markup=assistant_input_keyboard(),
         )
 
@@ -223,3 +276,41 @@ def _advisory_no_results_answer() -> str:
         "или назначение. Например: <code>труба 25</code> или "
         "<code>белый смеситель для кухни</code>."
     )
+
+
+async def _lookup_memory_answer(
+    api: APIClient,
+    question: str,
+    intent: str,
+) -> str | None:
+    try:
+        result = await api.lookup_assistant_memory(question=question, intent=intent)
+    except Exception:
+        return None
+
+    if not result.get("found"):
+        return None
+
+    entry = result.get("entry") or {}
+    return entry.get("answer_text") or None
+
+
+async def _store_memory_draft(
+    api: APIClient,
+    question: str,
+    intent: str,
+    answer_text: str,
+    source_product_ids: list[int] | None = None,
+    meta_json: dict | None = None,
+) -> None:
+    try:
+        await api.store_assistant_memory(
+            question=question,
+            intent=intent,
+            answer_text=answer_text,
+            source_product_ids=source_product_ids or [],
+            status="draft",
+            meta_json=meta_json,
+        )
+    except Exception:
+        return
