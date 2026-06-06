@@ -71,9 +71,8 @@ def search_results_keyboard():
 def product_view_keyboard():
     kb = ReplyKeyboardBuilder()
     kb.button(text="⬅️ Назад")
-    kb.button(text="🛒 Купить")
     kb.button(text=MAIN_MENU_BUTTON)
-    kb.adjust(2, 1)
+    kb.adjust(2)
     return kb.as_markup(resize_keyboard=True)
 
 
@@ -94,9 +93,7 @@ def products_inline_keyboard(products):
 
 
 def product_actions_inline_keyboard(product_id: int):
-    kb = InlineKeyboardBuilder()
-    kb.button(text="🛒 Купить", callback_data=f"sell:{product_id}")
-    return kb.as_markup()
+    return None
 
 
 def search_nav_inline_keyboard():
@@ -117,7 +114,6 @@ def search_results_inline_keyboard():
 
 def product_view_inline_keyboard(product_id: int):
     kb = InlineKeyboardBuilder()
-    kb.button(text="🛒 Купить", callback_data=f"sell:{product_id}")
     kb.button(text="🔎 Новый поиск", callback_data="search:stay")
     kb.button(text="🏠 Главное меню", callback_data="menu:main")
     kb.adjust(1)
@@ -148,7 +144,6 @@ def products_keyboard(products):
 def product_actions_keyboard(product_id: int):
     """Legacy: inline keyboard для действий с товаром"""
     kb = InlineKeyboardBuilder()
-    kb.button(text="🛒 Купить", callback_data=f"sell:{product_id}")
     kb.button(text="◀️ Назад к списку", callback_data="menu:back_to_products")
     kb.adjust(1)
     return kb.as_markup()
