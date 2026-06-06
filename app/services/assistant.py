@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from enum import StrEnum
 
 from app.utils.sku_utils import normalize_sku
 
 
-SKU_PATTERN = re.compile(r"\b([A-Za-zА-Яа-я]?\d?[A-Za-z][A-Za-z0-9.-]*\d[A-Za-z0-9.-]*)\b")
+SKU_PATTERN = re.compile(
+    r"\b([A-Za-zА-Яа-я]?\d?[A-Za-z][A-Za-z0-9.-]*\d[A-Za-z0-9.-]*)\b"
+)
 
 QTY_WITH_UNIT_PATTERN = re.compile(
     r"\b(\d{1,5})\s*(?:шт|штук|штуки|штука|pcs|pc)\b",
@@ -15,12 +18,61 @@ QTY_WITH_UNIT_PATTERN = re.compile(
 QTY_WITH_MARKER_PATTERN = re.compile(r"(?:x|\*)\s*(\d{1,5})\b", re.IGNORECASE)
 STANDALONE_NUMBER_PATTERN = re.compile(r"\b(\d{1,5})\b")
 
+STOCK_KEYWORDS = {
+    "есть",
+    "налич",
+    "остат",
+    "остаток",
+    "сколько",
+    "хватит",
+    "доступно",
+}
+SEARCH_KEYWORDS = {
+    "найди",
+    "найти",
+    "покажи",
+    "подбери",
+    "варианты",
+    "вариант",
+}
+ADVISORY_KEYWORDS = {
+    "комплект",
+    "собрать",
+    "подойдет",
+    "подойдёт",
+    "лучше",
+    "отличается",
+    "аналог",
+    "аналоги",
+    "нужно",
+    "нужны",
+    "какие детали",
+}
+HELP_KEYWORDS = {
+    "как загрузить",
+    "загрузить остатки",
+    "загрузить каталог",
+    "неподдерживаемый бренд",
+    "sku не найден",
+    "не найден",
+    "что значит",
+    "как проверить",
+}
+
+
+class AssistantIntent(StrEnum):
+    STOCK_CHECK = "stock_check"
+    PRODUCT_SEARCH = "product_search"
+    ADVISORY_QUESTION = "advisory_question"
+    HELP_QUESTION = "help_question"
+
 
 @dataclass(frozen=True)
 class AssistantQuestion:
     text: str
     sku: str | None
     requested_qty: int
+    intent: AssistantIntent
 
 
 def parse_assistant_question(text: str) -> AssistantQuestion:
@@ -28,7 +80,30 @@ def parse_assistant_question(text: str) -> AssistantQuestion:
     clean_text = (text or "").strip()
     sku = _extract_sku(clean_text)
     qty = _extract_requested_qty(clean_text, sku)
-    return AssistantQuestion(text=clean_text, sku=sku, requested_qty=qty)
+    intent = detect_intent(clean_text, sku=sku)
+    return AssistantQuestion(text=clean_text, sku=sku, requested_qty=qty, intent=intent)
+
+
+def detect_intent(text: str, sku: str | None = None) -> AssistantIntent:
+    """Route a manager question to the safest available assistant action."""
+    normalized = _normalize_for_intent(text)
+
+    if sku:
+        return AssistantIntent.STOCK_CHECK
+
+    if _contains_any_phrase(normalized, HELP_KEYWORDS):
+        return AssistantIntent.HELP_QUESTION
+
+    if _contains_any_phrase(normalized, ADVISORY_KEYWORDS):
+        return AssistantIntent.ADVISORY_QUESTION
+
+    if _contains_any_phrase(normalized, SEARCH_KEYWORDS):
+        return AssistantIntent.PRODUCT_SEARCH
+
+    if _contains_any_phrase(normalized, STOCK_KEYWORDS):
+        return AssistantIntent.STOCK_CHECK
+
+    return AssistantIntent.PRODUCT_SEARCH
 
 
 def _extract_sku(text: str) -> str | None:
@@ -57,9 +132,19 @@ def _extract_requested_qty(text: str, sku: str | None) -> int:
 
     text_without_sku = text
     if sku:
-        text_without_sku = re.sub(re.escape(sku), " ", text_without_sku, flags=re.IGNORECASE)
+        text_without_sku = re.sub(
+            re.escape(sku), " ", text_without_sku, flags=re.IGNORECASE
+        )
 
     for match in STANDALONE_NUMBER_PATTERN.finditer(text_without_sku):
         return max(1, int(match.group(1)))
 
     return 1
+
+
+def _normalize_for_intent(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip().lower())
+
+
+def _contains_any_phrase(text: str, phrases: set[str]) -> bool:
+    return any(phrase in text for phrase in phrases)
