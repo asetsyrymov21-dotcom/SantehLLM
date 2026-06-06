@@ -8,6 +8,7 @@ from app.bot.keyboards import (
     search_nav_inline_keyboard,
 )
 from app.bot.handlers.menu_actions import handle_menu_action
+from app.bot.config import is_admin_user
 from app.bot.storage import UserData
 from app.bot.api_client import APIClient
 
@@ -71,7 +72,12 @@ async def do_search(message: types.Message, state: FSMContext):
     async def exit_search(callback: types.CallbackQuery, state: FSMContext):
         await state.set_state(UserFlow.main_menu)
         await callback.message.answer(
-            "Главное меню:", reply_markup=main_menu_keyboard()
+            "Главное меню:",
+            reply_markup=main_menu_keyboard(
+                is_admin=is_admin_user(
+                    callback.from_user.id if callback.from_user else None
+                )
+            ),
         )
         await callback.answer()
 
@@ -88,6 +94,11 @@ async def do_search(message: types.Message, state: FSMContext):
     async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
         await state.set_state(UserFlow.main_menu)
         await callback.message.answer(
-            "Главное меню:", reply_markup=main_menu_keyboard()
+            "Главное меню:",
+            reply_markup=main_menu_keyboard(
+                is_admin=is_admin_user(
+                    callback.from_user.id if callback.from_user else None
+                )
+            ),
         )
         await callback.answer()

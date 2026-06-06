@@ -3,6 +3,7 @@ from aiogram.fsm.context import FSMContext
 
 from app.bot.keyboards import (
     ASK_ASSISTANT_BUTTON,
+    ASSISTANT_DRAFTS_BUTTON,
     CHECK_EXCEL_REQUEST_BUTTON,
     CHECK_REQUEST_BUTTON,
     IMPORT_CATALOG_BUTTON,
@@ -14,6 +15,7 @@ from app.bot.keyboards import (
     assistant_input_keyboard,
     search_nav_inline_keyboard,
 )
+from app.bot.config import is_admin_user
 from app.bot.states import AssistantStates, BatchSKUStates, StockImportStates, UserFlow
 
 
@@ -44,11 +46,23 @@ STOCK_IMPORT_INSTRUCTION = (
 
 async def handle_menu_action(message: types.Message, state: FSMContext) -> bool:
     text = (message.text or "").strip()
+    is_admin = is_admin_user(message.from_user.id if message.from_user else None)
 
     if text == MAIN_MENU_BUTTON:
         await state.clear()
         await state.set_state(UserFlow.main_menu)
-        await message.answer("Главное меню:", reply_markup=main_menu_keyboard())
+        await message.answer(
+            "Главное меню:", reply_markup=main_menu_keyboard(is_admin=is_admin)
+        )
+        return True
+
+    if text == ASSISTANT_DRAFTS_BUTTON:
+        if not is_admin:
+            await message.answer("Эта кнопка доступна только администратору.")
+            return True
+        from app.bot.handlers.assistant_admin import send_first_draft
+
+        await send_first_draft(message)
         return True
 
     if text == SEARCH_PRODUCT_BUTTON:
@@ -93,7 +107,7 @@ async def handle_menu_action(message: types.Message, state: FSMContext) -> bool:
         await message.answer(
             "🧾 Загрузку каталога выполняет администратор.\n\n"
             "Актуальное меню:",
-            reply_markup=main_menu_keyboard(),
+            reply_markup=main_menu_keyboard(is_admin=is_admin),
         )
         return True
 

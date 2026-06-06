@@ -10,6 +10,7 @@ from app.bot.keyboards import (
     IMPORT_CATALOG_BUTTON,
     main_menu_keyboard,
 )
+from app.bot.config import is_admin_user
 from app.bot.handlers.menu_actions import handle_menu_action
 from app.bot.states import CatalogImportStates, UserFlow
 
@@ -61,7 +62,9 @@ async def enter_catalog_import_mode(message: types.Message, state: FSMContext):
     await message.answer(
         "🧾 Загрузку каталога выполняет администратор.\n\n"
         "Актуальное меню:",
-        reply_markup=main_menu_keyboard(),
+        reply_markup=main_menu_keyboard(
+            is_admin=is_admin_user(message.from_user.id if message.from_user else None)
+        ),
     )
 
 

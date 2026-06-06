@@ -3,6 +3,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 
 MAIN_MENU_BUTTON = "🏠 Главное меню"
 ASK_ASSISTANT_BUTTON = "💬 Спросить ассистента"
+ASSISTANT_DRAFTS_BUTTON = "📝 Черновики ассистента"
 SEARCH_PRODUCT_BUTTON = "🔎 Поиск товара"
 CHECK_REQUEST_BUTTON = "📋 Проверить заявку"
 CHECK_EXCEL_REQUEST_BUTTON = "📂 Проверить Excel-заявку"
@@ -13,6 +14,7 @@ IMPORT_STOCK_BUTTON = "📥 Загрузить остатки"
 MAIN_MENU_BUTTONS = {
     MAIN_MENU_BUTTON,
     ASK_ASSISTANT_BUTTON,
+    ASSISTANT_DRAFTS_BUTTON,
     SEARCH_PRODUCT_BUTTON,
     CHECK_REQUEST_BUTTON,
     CHECK_EXCEL_REQUEST_BUTTON,
@@ -25,12 +27,14 @@ MAIN_MENU_BUTTONS = {
 # ========== Reply Keyboards ==========
 
 
-def main_menu_keyboard():
+def main_menu_keyboard(is_admin: bool = False):
     kb = ReplyKeyboardBuilder()
     kb.button(text=ASK_ASSISTANT_BUTTON)
     kb.button(text=SEARCH_PRODUCT_BUTTON)
     kb.button(text=CHECK_REQUEST_BUTTON)
     kb.button(text=IMPORT_STOCK_BUTTON)
+    if is_admin:
+        kb.button(text=ASSISTANT_DRAFTS_BUTTON)
     kb.adjust(1)
     return kb.as_markup(
         resize_keyboard=True, input_field_placeholder="Выберите действие..."

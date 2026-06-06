@@ -7,6 +7,7 @@ from app.bot.keyboards import (
     MAIN_MENU_BUTTON,
     main_menu_keyboard,
 )
+from app.bot.config import is_admin_user
 from app.bot.storage import UserData
 
 router = Router()
@@ -25,7 +26,9 @@ async def cmd_start(message: types.Message, state: FSMContext):
         "📋 <b>Проверить заявку</b> — проверить список SKU или Excel-файл\n"
         "📥 <b>Загрузить остатки</b> — обновить наличие товаров\n\n"
         "Выберите действие:",
-        reply_markup=main_menu_keyboard(),
+        reply_markup=main_menu_keyboard(
+            is_admin=is_admin_user(message.from_user.id if message.from_user else None)
+        ),
         parse_mode="HTML",
     )
 
@@ -34,10 +37,20 @@ async def cmd_start(message: types.Message, state: FSMContext):
 async def cmd_menu(message: types.Message, state: FSMContext):
     await state.clear()
     await state.set_state(UserFlow.main_menu)
-    await message.answer("Главное меню:", reply_markup=main_menu_keyboard())
+    await message.answer(
+        "Главное меню:",
+        reply_markup=main_menu_keyboard(
+            is_admin=is_admin_user(message.from_user.id if message.from_user else None)
+        ),
+    )
 
 
 @router.message(F.text == MAIN_MENU_BUTTON)
 async def go_main_menu(message: types.Message, state: FSMContext):
     await state.set_state(UserFlow.main_menu)
-    await message.answer("Главное меню:", reply_markup=main_menu_keyboard())
+    await message.answer(
+        "Главное меню:",
+        reply_markup=main_menu_keyboard(
+            is_admin=is_admin_user(message.from_user.id if message.from_user else None)
+        ),
+    )

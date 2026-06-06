@@ -8,6 +8,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from app.bot.api_client import APIClient
 from app.bot.config import is_admin_user
+from app.bot.keyboards import ASSISTANT_DRAFTS_BUTTON
 
 router = Router()
 
@@ -20,10 +21,23 @@ async def show_my_id(message: types.Message):
 
 @router.message(Command("assistant_drafts"))
 async def show_assistant_drafts(message: types.Message):
+    await _show_assistant_drafts(message)
+
+
+@router.message(F.text == ASSISTANT_DRAFTS_BUTTON)
+async def show_assistant_drafts_from_button(message: types.Message):
+    await _show_assistant_drafts(message)
+
+
+async def _show_assistant_drafts(message: types.Message):
     if not is_admin_user(message.from_user.id if message.from_user else None):
-        await message.answer("Эта команда доступна только администратору.")
+        await message.answer("Этот раздел доступен только администратору.")
         return
 
+    await send_first_draft(message)
+
+
+async def send_first_draft(message: types.Message) -> None:
     await _send_draft(message, offset=0)
 
 
