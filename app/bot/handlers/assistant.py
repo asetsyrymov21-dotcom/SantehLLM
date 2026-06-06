@@ -58,6 +58,7 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
         return
 
     api = APIClient()
+    product_search_answer = None
     try:
         if question.intent == AssistantIntent.STOCK_CHECK:
             if not question.sku:
@@ -140,6 +141,10 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
                     advisory_answer,
                     meta_json={"reason": "no_product_candidates"},
                 )
+        elif question.intent == AssistantIntent.PRODUCT_SEARCH and not products:
+            product_search_answer = await _generate_advisory_answer(
+                api, question.text, AssistantIntent.ADVISORY_QUESTION.value, []
+            )
     except Exception as exc:
         await message.answer(
             f"❌ Ошибка ассистента: {exc}",
@@ -158,8 +163,7 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
             )
         else:
             await message.answer(
-                "Я не нашёл точный артикул или подходящий товар.\n\n"
-                "Попробуйте написать артикул, например: <code>G1017 5 шт</code>.",
+                product_search_answer or _product_search_no_results_answer(),
                 reply_markup=assistant_input_keyboard(),
                 parse_mode="HTML",
             )
@@ -288,6 +292,15 @@ def _advisory_no_results_answer() -> str:
         "Для подбора лучше уточнить: тип товара, диаметр/размер, бренд, цвет "
         "или назначение. Например: <code>труба 25</code> или "
         "<code>белый смеситель для кухни</code>."
+    )
+
+
+def _product_search_no_results_answer() -> str:
+    return (
+        "Я не нашёл подходящий товар в каталоге.\n\n"
+        "Если это народное название, напишите как клиент сказал и добавьте, "
+        "для чего нужна деталь. Например: <code>что такое американка для трубы</code> "
+        "или <code>нужен уголок мама-папа 20</code>."
     )
 
 

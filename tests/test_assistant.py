@@ -25,6 +25,12 @@ def test_parse_assistant_stock_question_defaults_to_one():
     assert question.intent == AssistantIntent.STOCK_CHECK
 
 
+def test_parse_sku_like_advisory_question_is_not_stock_check():
+    question = parse_assistant_question("ppr20 dlya teplogo pola chto nuzhno?")
+
+    assert question.intent == AssistantIntent.ADVISORY_QUESTION
+
+
 def test_parse_assistant_question_without_sku_keeps_text_for_search():
     question = parse_assistant_question("найди белый смеситель для раковины")
 
@@ -58,3 +64,9 @@ def test_detect_product_search_question():
     intent = detect_intent("покажи белые смесители для кухни")
 
     assert intent == AssistantIntent.PRODUCT_SEARCH
+
+
+def test_unknown_question_defaults_to_advisory():
+    intent = detect_intent("клиент просит народное название американка")
+
+    assert intent == AssistantIntent.ADVISORY_QUESTION

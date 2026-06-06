@@ -110,15 +110,23 @@ def parse_assistant_question(text: str) -> AssistantQuestion:
     clean_text = (text or "").strip()
     sku = _extract_sku(clean_text)
     qty = _extract_requested_qty(clean_text, sku)
-    intent = detect_intent(clean_text, sku=sku)
+    intent = detect_intent(clean_text, sku=sku, requested_qty=qty)
     return AssistantQuestion(text=clean_text, sku=sku, requested_qty=qty, intent=intent)
 
 
-def detect_intent(text: str, sku: str | None = None) -> AssistantIntent:
+def detect_intent(
+    text: str,
+    sku: str | None = None,
+    requested_qty: int | None = None,
+) -> AssistantIntent:
     """Route a manager question to the safest available assistant action."""
     normalized = _normalize_for_intent(text)
 
-    if sku:
+    if sku and (
+        _contains_any_phrase(normalized, STOCK_KEYWORDS)
+        or requested_qty is not None and requested_qty > 1
+        or _has_quantity_marker(normalized)
+    ):
         return AssistantIntent.STOCK_CHECK
 
     if _contains_any_phrase(normalized, HELP_KEYWORDS):
@@ -133,7 +141,7 @@ def detect_intent(text: str, sku: str | None = None) -> AssistantIntent:
     if _contains_any_phrase(normalized, STOCK_KEYWORDS):
         return AssistantIntent.STOCK_CHECK
 
-    return AssistantIntent.PRODUCT_SEARCH
+    return AssistantIntent.ADVISORY_QUESTION
 
 
 def _extract_sku(text: str) -> str | None:
@@ -178,3 +186,10 @@ def _normalize_for_intent(text: str) -> str:
 
 def _contains_any_phrase(text: str, phrases: set[str]) -> bool:
     return any(phrase in text for phrase in phrases)
+
+
+def _has_quantity_marker(text: str) -> bool:
+    return bool(
+        QTY_WITH_UNIT_PATTERN.search(text)
+        or QTY_WITH_MARKER_PATTERN.search(text)
+    )
