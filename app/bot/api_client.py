@@ -134,3 +134,25 @@ class APIClient:
         )
         resp.raise_for_status()
         return resp.json()
+
+    async def list_assistant_memory(
+        self,
+        status: str = "draft",
+        limit: int = 1,
+        offset: int = 0,
+    ) -> dict:
+        resp = await self.client.get(
+            "/assistant/memory",
+            params={"status": status, "limit": limit, "offset": offset},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    async def approve_assistant_memory(self, entry_id: int) -> dict:
+        resp = await self.client.post(f"/assistant/memory/{entry_id}/approve")
+        resp.raise_for_status()
+        return resp.json()
+
+    async def delete_assistant_memory(self, entry_id: int) -> None:
+        resp = await self.client.delete(f"/assistant/memory/{entry_id}")
+        resp.raise_for_status()

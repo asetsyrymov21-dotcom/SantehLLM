@@ -3,12 +3,13 @@ from __future__ import annotations
 import re
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import AssistantQACache
 from app.schemas import (
     AssistantMemoryEntry,
+    AssistantMemoryListResponse,
     AssistantMemoryLookupResponse,
     AssistantMemoryStoreRequest,
 )
@@ -93,6 +94,55 @@ class AssistantMemoryService:
         self.session.commit()
         self.session.refresh(entry)
         return _to_entry_schema(entry)
+
+    def list_entries(
+        self,
+        status: str = "draft",
+        limit: int = 5,
+        offset: int = 0,
+    ) -> AssistantMemoryListResponse:
+        if status not in ALLOWED_STATUSES:
+            raise ValueError(f"Unsupported QA status: {status}")
+
+        limit = max(1, min(limit, 50))
+        offset = max(0, offset)
+
+        total = self.session.execute(
+            select(func.count()).select_from(AssistantQACache).where(
+                AssistantQACache.status == status
+            )
+        ).scalar_one()
+        rows = self.session.execute(
+            select(AssistantQACache)
+            .where(AssistantQACache.status == status)
+            .order_by(AssistantQACache.updated_at.desc(), AssistantQACache.id.desc())
+            .offset(offset)
+            .limit(limit)
+        ).scalars().all()
+        return AssistantMemoryListResponse(
+            total=total,
+            entries=[_to_entry_schema(row) for row in rows],
+        )
+
+    def approve(self, entry_id: int) -> AssistantMemoryEntry:
+        entry = self.session.get(AssistantQACache, entry_id)
+        if not entry:
+            raise LookupError("Assistant memory entry not found")
+        if entry.intent in OPERATIONAL_INTENTS:
+            raise ValueError("Operational answers must not be approved")
+
+        entry.status = "approved"
+        self.session.commit()
+        self.session.refresh(entry)
+        return _to_entry_schema(entry)
+
+    def delete(self, entry_id: int) -> None:
+        entry = self.session.get(AssistantQACache, entry_id)
+        if not entry:
+            raise LookupError("Assistant memory entry not found")
+
+        self.session.delete(entry)
+        self.session.commit()
 
 
 def normalize_memory_question(question: str) -> str:

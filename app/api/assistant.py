@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api import deps
 from app.schemas import (
     AssistantMemoryEntry,
+    AssistantMemoryListResponse,
     AssistantMemoryLookupRequest,
     AssistantMemoryLookupResponse,
     AssistantMemoryStoreRequest,
@@ -35,3 +36,41 @@ def store_assistant_memory(
         return service.store(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/memory", response_model=AssistantMemoryListResponse)
+def list_assistant_memory(
+    status: str = "draft",
+    limit: int = 5,
+    offset: int = 0,
+    service: AssistantMemoryService = Depends(deps.get_assistant_memory_service),
+) -> AssistantMemoryListResponse:
+    try:
+        return service.list_entries(status=status, limit=limit, offset=offset)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/memory/{entry_id}/approve", response_model=AssistantMemoryEntry)
+def approve_assistant_memory(
+    entry_id: int,
+    service: AssistantMemoryService = Depends(deps.get_assistant_memory_service),
+) -> AssistantMemoryEntry:
+    try:
+        return service.approve(entry_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.delete("/memory/{entry_id}")
+def delete_assistant_memory(
+    entry_id: int,
+    service: AssistantMemoryService = Depends(deps.get_assistant_memory_service),
+) -> dict[str, bool]:
+    try:
+        service.delete(entry_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return {"ok": True}

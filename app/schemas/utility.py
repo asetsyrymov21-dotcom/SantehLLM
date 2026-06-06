@@ -179,6 +179,11 @@ class AssistantMemoryLookupResponse(BaseModel):
     entry: AssistantMemoryEntry | None = None
 
 
+class AssistantMemoryListResponse(BaseModel):
+    total: int
+    entries: List[AssistantMemoryEntry]
+
+
 class AssistantMemoryStoreRequest(BaseModel):
     question: str = Field(..., min_length=1)
     intent: str
@@ -210,6 +215,7 @@ __all__ = [
     "RagAskResponse",
     "AssistantMemoryLookupRequest",
     "AssistantMemoryLookupResponse",
+    "AssistantMemoryListResponse",
     "AssistantMemoryStoreRequest",
     "AssistantMemoryEntry",
 ]

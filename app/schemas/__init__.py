@@ -38,6 +38,7 @@ from app.schemas.utility import (
     RagAskResponse,
     AssistantMemoryLookupRequest,
     AssistantMemoryLookupResponse,
+    AssistantMemoryListResponse,
     AssistantMemoryStoreRequest,
     AssistantMemoryEntry,
 )
@@ -79,6 +80,7 @@ __all__ = [
     "RagAskResponse",
     "AssistantMemoryLookupRequest",
     "AssistantMemoryLookupResponse",
+    "AssistantMemoryListResponse",
     "AssistantMemoryStoreRequest",
     "AssistantMemoryEntry",
 ]

@@ -5,6 +5,7 @@ def register_handlers(dp: Dispatcher) -> None:
     from app.bot.handlers import (
         start,
         assistant,
+        assistant_admin,
         search,
         product,
         navigation,
@@ -18,6 +19,7 @@ def register_handlers(dp: Dispatcher) -> None:
 
     dp.include_router(start.router)
     dp.include_router(assistant.router)
+    dp.include_router(assistant_admin.router)
     dp.include_router(batch_sku.router)
     dp.include_router(catalog_import.router)
     dp.include_router(excel_request.router)
