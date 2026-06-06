@@ -143,7 +143,11 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
                 )
         elif question.intent == AssistantIntent.PRODUCT_SEARCH and not products:
             product_search_answer = await _generate_advisory_answer(
-                api, question.text, AssistantIntent.ADVISORY_QUESTION.value, []
+                api, question.text, question.intent.value, []
+            )
+        elif question.intent == AssistantIntent.PRODUCT_SEARCH and products:
+            product_search_answer = await _generate_advisory_answer(
+                api, question.text, question.intent.value, products
             )
     except Exception as exc:
         await message.answer(
@@ -174,6 +178,12 @@ async def handle_assistant_question(message: types.Message, state: FSMContext):
             advisory_answer
             or _advisory_with_results_answer(),
             reply_markup=assistant_input_keyboard(),
+        )
+    elif question.intent == AssistantIntent.PRODUCT_SEARCH and product_search_answer:
+        await message.answer(
+            product_search_answer,
+            reply_markup=assistant_input_keyboard(),
+            parse_mode="HTML",
         )
 
     await _send_product_options(message, products)
@@ -320,12 +330,16 @@ async def _generate_advisory_answer(
     intent: str,
     products: list[dict] | None,
 ) -> str | None:
+    product_context = _format_product_context(products or [])
     return await _generate_llm_draft(
         question=question,
         intent=intent,
         help_context=_assistant_help_context(),
         rag_context=await _lookup_rag_context(api, question),
-        product_context=_format_product_context(products or []),
+        product_context=product_context,
+        catalog_bound=bool(product_context)
+        or intent == AssistantIntent.PRODUCT_SEARCH.value
+        or _is_catalog_bound_question(question),
     )
 
 
@@ -336,6 +350,7 @@ async def _generate_llm_draft(
     help_context: str = "",
     rag_context: str = "",
     product_context: str = "",
+    catalog_bound: bool = False,
 ) -> str | None:
     try:
         answer = await asyncio.to_thread(
@@ -345,6 +360,7 @@ async def _generate_llm_draft(
             help_context=help_context,
             rag_context=rag_context,
             product_context=product_context,
+            catalog_bound=catalog_bound,
         )
     except Exception:
         logger.exception("Assistant LLM draft fallback used")
@@ -365,6 +381,9 @@ def _assistant_help_context() -> str:
             "Если SKU не найден, обычно артикула нет в каталоге или он записан иначе; стоит попробовать без точек/дефисов или передать SKU администратору.",
             "Каталог загружает администратор; менеджеру доступны поиск, проверка заявки и остатки.",
             "Остатки и цены нельзя придумывать: они проверяются только по базе и точному SKU.",
+            "Если вопрос связан с товарами компании, брендом, каталогом или подбором конкретной позиции, ассистент должен опираться на найденные товары каталога и не заменять их внешними товарами из общих знаний.",
+            "Если найденные товары есть, сначала объяснить менеджеру, что похоже подходит, затем задать уточняющие вопросы и предложить выбрать товар из вариантов ниже.",
+            "Если вопрос общий технический и не просит товары компании, можно отвечать общими знаниями без привязки к каталогу.",
             "Смесительный узел в сантехнике и отоплении - это группа оборудования, которая смешивает горячую подачу с обраткой, чтобы получить нужную температуру теплоносителя. Часто нужен для теплого пола, потому что теплому полу обычно нужна температура ниже, чем радиаторам.",
             "В смесительный узел обычно входят насос, смесительный клапан, термоголовка или термостатический элемент, коллекторные подключения, краны, воздухоотводчик и иногда байпас. Точный состав зависит от схемы.",
             "Если клиент спрашивает про смесительный узел, уточнить: для теплого пола или радиаторов, площадь/метраж, количество контуров, диаметр трубы, есть ли коллектор и какая температура подачи.",
@@ -386,6 +405,25 @@ def _format_product_context(products: list[dict]) -> str:
         ]
         lines.append("; ".join(parts))
     return "\n".join(lines)
+
+
+def _is_catalog_bound_question(question: str) -> bool:
+    normalized = (question or "").lower()
+    markers = {
+        "наш",
+        "у нас",
+        "товар",
+        "товары",
+        "каталог",
+        "бренд",
+        "бренда",
+        "компани",
+        "gappo",
+        "гаппо",
+        "frap",
+        "фрап",
+    }
+    return any(marker in normalized for marker in markers)
 
 
 async def _lookup_rag_context(api: APIClient, question: str) -> str:
