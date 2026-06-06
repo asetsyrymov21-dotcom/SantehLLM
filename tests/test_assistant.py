@@ -46,6 +46,14 @@ def test_detect_advisory_question():
     assert intent == AssistantIntent.ADVISORY_QUESTION
 
 
+def test_detect_transliterated_advisory_question():
+    intent = detect_intent(
+        "kakie komplektuyuschie nuzhny dlya teplogo pola na 100metrov?"
+    )
+
+    assert intent == AssistantIntent.ADVISORY_QUESTION
+
+
 def test_detect_product_search_question():
     intent = detect_intent("покажи белые смесители для кухни")
 

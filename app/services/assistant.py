@@ -26,6 +26,11 @@ STOCK_KEYWORDS = {
     "сколько",
     "хватит",
     "доступно",
+    "est",
+    "nalich",
+    "ostat",
+    "skolko",
+    "hvatit",
 }
 SEARCH_KEYWORDS = {
     "найди",
@@ -34,6 +39,11 @@ SEARCH_KEYWORDS = {
     "подбери",
     "варианты",
     "вариант",
+    "naydi",
+    "naiti",
+    "pokazhi",
+    "podberi",
+    "variant",
 }
 ADVISORY_KEYWORDS = {
     "комплект",
@@ -47,6 +57,17 @@ ADVISORY_KEYWORDS = {
     "нужно",
     "нужны",
     "какие детали",
+    "komplekt",
+    "komplektuyusch",
+    "komplektuiusch",
+    "sobrat",
+    "podoydet",
+    "luchshe",
+    "analog",
+    "nuzhno",
+    "nuzhny",
+    "kakie detali",
+    "teplogo pola",
 }
 HELP_KEYWORDS = {
     "как загрузить",
@@ -57,6 +78,15 @@ HELP_KEYWORDS = {
     "не найден",
     "что значит",
     "как проверить",
+    "kak zagruzit",
+    "zagruzit ostatki",
+    "zagruzit katalog",
+    "nepodderzhivaemyi brend",
+    "nepodderzhivaemyy brend",
+    "sku ne nayden",
+    "ne nayden",
+    "chto znachit",
+    "kak proverit",
 }
 
 
