@@ -2,6 +2,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 
 
 MAIN_MENU_BUTTON = "🏠 Главное меню"
+ASK_ASSISTANT_BUTTON = "💬 Спросить ассистента"
 SEARCH_PRODUCT_BUTTON = "🔎 Поиск товара"
 CHECK_REQUEST_BUTTON = "📋 Проверить заявку"
 CHECK_EXCEL_REQUEST_BUTTON = "📂 Проверить Excel-заявку"
@@ -11,6 +12,7 @@ IMPORT_STOCK_BUTTON = "📥 Загрузить остатки"
 
 MAIN_MENU_BUTTONS = {
     MAIN_MENU_BUTTON,
+    ASK_ASSISTANT_BUTTON,
     SEARCH_PRODUCT_BUTTON,
     CHECK_REQUEST_BUTTON,
     CHECK_EXCEL_REQUEST_BUTTON,
@@ -25,6 +27,7 @@ MAIN_MENU_BUTTONS = {
 
 def main_menu_keyboard():
     kb = ReplyKeyboardBuilder()
+    kb.button(text=ASK_ASSISTANT_BUTTON)
     kb.button(text=SEARCH_PRODUCT_BUTTON)
     kb.button(text=CHECK_REQUEST_BUTTON)
     kb.button(text=IMPORT_STOCK_BUTTON)
@@ -41,6 +44,16 @@ def search_input_keyboard():
     kb.adjust(2)
     return kb.as_markup(
         resize_keyboard=True, input_field_placeholder="Введите артикул или название..."
+    )
+
+
+def assistant_input_keyboard():
+    kb = ReplyKeyboardBuilder()
+    kb.button(text=MAIN_MENU_BUTTON)
+    kb.adjust(1)
+    return kb.as_markup(
+        resize_keyboard=True,
+        input_field_placeholder="Например: Есть G1017 5 шт?",
     )
 
 

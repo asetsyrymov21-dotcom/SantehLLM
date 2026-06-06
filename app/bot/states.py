@@ -24,3 +24,7 @@ class StockImportStates(StatesGroup):
 
 class CatalogImportStates(StatesGroup):
     awaiting_catalog_file = State()
+
+
+class AssistantStates(StatesGroup):
+    awaiting_question = State()

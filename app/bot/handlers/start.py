@@ -20,6 +20,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
 
     await message.answer(
         "👋 Добро пожаловать в Santeh Catalog!\n\n"
+        "💬 <b>Спросить ассистента</b> — спросить про товар или остаток\n"
         "🔎 <b>Поиск товара</b> — найти по SKU или названию\n"
         "📋 <b>Проверить заявку</b> — проверить список SKU или Excel-файл\n"
         "📥 <b>Загрузить остатки</b> — обновить наличие товаров\n\n"

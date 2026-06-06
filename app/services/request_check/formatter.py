@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import html
 from dataclasses import dataclass
+
 from app.services.request_check.schemas import CheckedLine
 
 _STATUS_EMOJI = {
@@ -48,13 +50,20 @@ def format_checked_lines_for_chat(rows: list[CheckedLine]) -> str:
     lines = []
     for row in rows:
         emoji = _STATUS_EMOJI.get(row.status, "❓")
-        name = row.name or "—"
-        brand = row.brand or "—"
-        sku_display = row.sku or row.input_sku
+        sku_display = row.sku or row.input_sku or "—"
+        sku_text = html.escape(str(sku_display))
+        status_text = html.escape(row.status)
+        brand = html.escape(row.brand or "—")
+
+        if row.found:
+            name = html.escape(row.name or "без названия")
+            product_line = f"{sku_text} ({name}) | {brand}"
+        else:
+            product_line = "Не найдено в каталоге"
 
         lines.append(
-            f"{emoji} <b>{sku_display}</b> — {row.status}\n"
-            f"   {name} | {brand}\n"
+            f"{emoji} <b>{sku_text}</b> — {status_text}\n"
+            f"   {product_line}\n"
             f"   Запрошено: {row.requested_qty} | Остаток: {row.stock_qty}"
         )
 

@@ -82,9 +82,7 @@ async def handle_batch_excel_file(message: types.Message, state: FSMContext):
 
     if len(checked) <= 10:
         text_result = format_checked_lines_for_chat(checked)
-        await message.answer(
-            f"{text_result}\n\n{summary_text}", parse_mode="HTML"
-        )
+        await message.answer(text_result, parse_mode="HTML")
     else:
         buf = generate_excel_report(checked)
         filename = get_report_filename()
@@ -126,11 +124,14 @@ async def handle_batch_input(message: types.Message, state: FSMContext):
         text_result = format_checked_lines_for_chat(checked)
         await message.answer(text_result, parse_mode="HTML")
     else:
+        summary = calc_summary(checked)
+        summary_text = format_summary(summary)
         buf = generate_excel_report(checked)
         filename = get_report_filename()
         await message.answer_document(
             BufferedInputFile(buf.read(), filename=filename),
-            caption=f"📊 Проверено {len(checked)} позиций",
+            caption=f"📊 Проверено {len(checked)} позиций\n\n{summary_text}",
+            parse_mode="HTML",
         )
 
     await state.set_state(BatchSKUStates.awaiting_input)

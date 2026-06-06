@@ -2,6 +2,7 @@ from aiogram import types
 from aiogram.fsm.context import FSMContext
 
 from app.bot.keyboards import (
+    ASK_ASSISTANT_BUTTON,
     CHECK_EXCEL_REQUEST_BUTTON,
     CHECK_REQUEST_BUTTON,
     IMPORT_CATALOG_BUTTON,
@@ -10,9 +11,10 @@ from app.bot.keyboards import (
     MAIN_MENU_BUTTON,
     SEARCH_PRODUCT_BUTTON,
     main_menu_keyboard,
+    assistant_input_keyboard,
     search_nav_inline_keyboard,
 )
-from app.bot.states import BatchSKUStates, StockImportStates, UserFlow
+from app.bot.states import AssistantStates, BatchSKUStates, StockImportStates, UserFlow
 
 
 CHECK_REQUEST_INSTRUCTION = (
@@ -55,6 +57,19 @@ async def handle_menu_action(message: types.Message, state: FSMContext) -> bool:
             "🔎 Введите SKU или название товара.\n"
             "Можно отправлять несколько запросов подряд.",
             reply_markup=search_nav_inline_keyboard(),
+        )
+        return True
+
+    if text == ASK_ASSISTANT_BUTTON:
+        await state.set_state(AssistantStates.awaiting_question)
+        await message.answer(
+            "💬 <b>Ассистент</b>\n\n"
+            "Спросите обычным текстом, например:\n"
+            "<code>Есть G1017 5 шт?</code>\n"
+            "<code>Найди белый смеситель для раковины</code>\n\n"
+            "По остаткам я отвечаю только по данным из базы.",
+            reply_markup=assistant_input_keyboard(),
+            parse_mode="HTML",
         )
         return True
 
