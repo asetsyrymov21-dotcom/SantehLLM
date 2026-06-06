@@ -45,35 +45,6 @@ SEARCH_KEYWORDS = {
     "podberi",
     "variant",
 }
-ADVISORY_KEYWORDS = {
-    "комплект",
-    "собрать",
-    "подойдет",
-    "подойдёт",
-    "лучше",
-    "отличается",
-    "аналог",
-    "аналоги",
-    "нужно",
-    "нужны",
-    "какие детали",
-    "что такое",
-    "смесительный узел",
-    "komplekt",
-    "komplektuyusch",
-    "komplektuiusch",
-    "sobrat",
-    "podoydet",
-    "luchshe",
-    "analog",
-    "nuzhno",
-    "nuzhny",
-    "kakie detali",
-    "chto takoe",
-    "smesitelnyi uzel",
-    "smesitelnyy uzel",
-    "teplogo pola",
-}
 HELP_KEYWORDS = {
     "как загрузить",
     "загрузить остатки",
@@ -137,14 +108,8 @@ def detect_intent(
     if _contains_any_phrase(normalized, HELP_KEYWORDS):
         return AssistantIntent.HELP_QUESTION
 
-    if _contains_any_phrase(normalized, ADVISORY_KEYWORDS):
-        return AssistantIntent.ADVISORY_QUESTION
-
     if _contains_any_phrase(normalized, SEARCH_KEYWORDS):
         return AssistantIntent.PRODUCT_SEARCH
-
-    if _contains_any_phrase(normalized, STOCK_KEYWORDS):
-        return AssistantIntent.STOCK_CHECK
 
     return AssistantIntent.ADVISORY_QUESTION
 

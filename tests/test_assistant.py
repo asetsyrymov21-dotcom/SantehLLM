@@ -72,6 +72,12 @@ def test_detect_transliterated_what_is_mixing_unit_question():
     assert intent == AssistantIntent.ADVISORY_QUESTION
 
 
+def test_stock_keyword_without_sku_defaults_to_advisory():
+    intent = detect_intent("есть смесительный узел для теплого пола?")
+
+    assert intent == AssistantIntent.ADVISORY_QUESTION
+
+
 def test_detect_product_search_question():
     intent = detect_intent("покажи белые смесители для кухни")
 
