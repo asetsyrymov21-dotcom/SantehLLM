@@ -7,11 +7,23 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.client.telegram import TelegramAPIServer
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import BotCommand, MenuButtonCommands
 
 from app.bot.config import BOT_TOKEN, TELEGRAM_API_BASE_URL
 from app.bot.handlers import register_handlers
 
 logger = logging.getLogger(__name__)
+
+
+async def setup_bot_menu(bot: Bot) -> None:
+    """Expose common actions through Telegram's native menu button."""
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="Запустить бота"),
+            BotCommand(command="menu", description="Открыть главное меню"),
+        ]
+    )
+    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
 
 
 async def main() -> None:
@@ -35,6 +47,7 @@ async def main() -> None:
     # Сбрасываем вебхук (если вдруг был) и накопившиеся апдейты,
     # чтобы избежать конфликта при перезапуске
     await bot.delete_webhook(drop_pending_updates=True)
+    await setup_bot_menu(bot)
     logger.info("Webhook deleted, pending updates dropped. Starting polling...")
 
     try:

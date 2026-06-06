@@ -29,7 +29,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
     )
 
 
-@router.message(Command("menu"))
+@router.message(Command("menu", "menyu"))
 async def cmd_menu(message: types.Message, state: FSMContext):
     await state.clear()
     await state.set_state(UserFlow.main_menu)

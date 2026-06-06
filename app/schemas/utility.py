@@ -58,15 +58,23 @@ class ImportCatalogResponse(BaseModel):
 
 
 class StockImportResponse(BaseModel):
+    filename: str = ""
+    selected_sheet: Optional[str] = None
+    sheets_checked: int = 0
+    sheet_stats: List[dict[str, Any]] = Field(default_factory=list)
     rows_scanned: int
+    sku_found: int = 0
     updated: int
     unchanged: int
     skipped_no_product: int
     skipped_unsupported_brand: int
+    unsupported_brand_breakdown: dict[str, int] = Field(default_factory=dict)
     skipped_invalid_sku: int
     skipped_invalid_qty: int
     skipped_duplicate: int
     empty_qty_treated_as_zero: int
+    first_unmatched_skus: List[str] = Field(default_factory=list)
+    first_duplicate_skus: List[str] = Field(default_factory=list)
     errors: int
 
 

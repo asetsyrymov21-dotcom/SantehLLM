@@ -174,6 +174,14 @@ class TestStockExcelParser:
         assert result.sheet_name == "Остатки"
         assert [row.raw_article for row in result.rows] == ["G1391", "G1392", "G1393"]
         assert [row.raw_quantity for row in result.rows] == ["10", "20", "30"]
+        diagnostics = result.import_diagnostics
+        assert diagnostics["sheets_checked"] == 3
+        sheet_stats = {stat["sheet"]: stat for stat in diagnostics["sheet_stats"]}
+        assert sheet_stats["Запрос"]["status"] == "valid_stock"
+        assert sheet_stats["Запрос"]["rows_found"] == 1
+        assert sheet_stats["Остатки"]["status"] == "valid_stock"
+        assert sheet_stats["Остатки"]["rows_found"] == 3
+        assert sheet_stats["Служебный"]["status"] == "article_only"
 
 
 class TestStockImportBotReport:
@@ -191,6 +199,52 @@ class TestStockImportBotReport:
 
         assert "Нет в наличии (пустое кол-во): <b>3</b>" in text
         assert "Пустое кол-во → 0" not in text
+
+    def test_detailed_stock_report_includes_import_diagnostics(self):
+        text = format_stock_import_report(
+            {
+                "filename": "2026 Santehnika.xlsx",
+                "selected_sheet": "Santehnika_Stock",
+                "sheets_checked": 7,
+                "sheet_stats": [
+                    {
+                        "sheet": "Прайс",
+                        "status": "article_only",
+                        "header_row": 2,
+                        "rows_found": 1242,
+                    },
+                    {
+                        "sheet": "Santehnika_Stock",
+                        "status": "valid_stock",
+                        "header_row": 1,
+                        "rows_found": 15342,
+                    },
+                ],
+                "rows_scanned": 15342,
+                "sku_found": 14101,
+                "updated": 1242,
+                "unchanged": 1,
+                "skipped_no_product": 1241,
+                "skipped_unsupported_brand": 139,
+                "unsupported_brand_breakdown": {"R": 87, "W": 52},
+                "skipped_duplicate": 17,
+                "empty_qty_treated_as_zero": 203,
+                "first_unmatched_skus": ["R101", "W203", "ABC001"],
+                "first_duplicate_skus": ["G1307"],
+            }
+        )
+
+        assert "Файл: <b>2026 Santehnika.xlsx</b>" in text
+        assert "Выбран лист: <b>Santehnika_Stock</b>" in text
+        assert "Листов проверено: <b>7</b>" in text
+        assert "Строк найдено:       <b>15342</b>" in text
+        assert "SKU найдено в БД:    <b>14101</b>" in text
+        assert "SKU не найдено:      <b>1241</b>" in text
+        assert "Неподдерж. бренд:   <b>139</b> (R=87, W=52)" in text
+        assert "Прайс: только артикул, строк 1242, заголовок 2" in text
+        assert "Santehnika_Stock: остатки, строк 15342, заголовок 1" in text
+        assert "R101, W203, ABC001" in text
+        assert "G1307" in text
 
 
 class TestStockMatcher:

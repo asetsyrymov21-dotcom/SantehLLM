@@ -52,8 +52,19 @@ def _parse_stock_excel_file(path: str) -> object:
     last_error: Exception | None = None
     article_only_result: object | None = None
     valid_results: list[object] = []
+    sheet_names = _stock_sheet_names_to_try(path)
+    sheet_stats: dict[str, dict[str, object]] = {
+        sheet_name: {
+            "sheet": sheet_name,
+            "status": "not_detected",
+            "header_row": None,
+            "rows_found": 0,
+            "rows_scanned": 0,
+        }
+        for sheet_name in sheet_names
+    }
 
-    for sheet_name in _stock_sheet_names_to_try(path):
+    for sheet_name in sheet_names:
         for header_row in STOCK_HEADER_ROWS_TO_TRY:
             parser = StockExcelParser(path, header_row=header_row)
             try:
@@ -73,6 +84,16 @@ def _parse_stock_excel_file(path: str) -> object:
 
             if "quantity" not in parse_result.column_mapping:
                 article_only_result = article_only_result or parse_result
+                current = sheet_stats[sheet_name]
+                if current["status"] != "valid_stock":
+                    current.update(
+                        {
+                            "status": "article_only",
+                            "header_row": header_row,
+                            "rows_found": len(parse_result.rows),
+                            "rows_scanned": parse_result.total_rows_scanned,
+                        }
+                    )
                 logger.info(
                     "Inventory parse found article but no quantity: sheet=%s header_row=%s",
                     sheet_name,
@@ -80,6 +101,19 @@ def _parse_stock_excel_file(path: str) -> object:
                 )
                 continue
 
+            current = sheet_stats[sheet_name]
+            if (
+                current["status"] != "valid_stock"
+                or len(parse_result.rows) > int(current["rows_found"] or 0)
+            ):
+                current.update(
+                    {
+                        "status": "valid_stock",
+                        "header_row": header_row,
+                        "rows_found": len(parse_result.rows),
+                        "rows_scanned": parse_result.total_rows_scanned,
+                    }
+                )
             logger.info(
                 "Inventory candidate found with sheet=%s header_row=%s rows=%s",
                 sheet_name,
@@ -90,6 +124,10 @@ def _parse_stock_excel_file(path: str) -> object:
 
     if valid_results:
         selected_result = max(valid_results, key=lambda result: len(result.rows))
+        selected_result.import_diagnostics = {
+            "sheets_checked": len(sheet_names),
+            "sheet_stats": list(sheet_stats.values()),
+        }
         logger.info(
             "Inventory headers selected: sheet=%s rows=%s candidates=%s",
             selected_result.sheet_name,
@@ -125,6 +163,29 @@ def _parse_stock_excel_file(path: str) -> object:
         "Файл должен содержать колонку артикула и колонку количества/остатка. "
         f"Last parser error: {last_error}"
     )
+
+
+def _first_values(values: list[str], limit: int = 20) -> list[str]:
+    result: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if not value or value in seen:
+            continue
+        result.append(value)
+        seen.add(value)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _unsupported_brand_breakdown(report: object) -> dict[str, int]:
+    breakdown: dict[str, int] = {}
+    for result in getattr(report, "results", []):
+        if result.match_status != "unsupported_brand":
+            continue
+        brand = result.brand_derived or "UNKNOWN"
+        breakdown[brand] = breakdown.get(brand, 0) + 1
+    return dict(sorted(breakdown.items()))
 
 
 @router.post("/catalog", response_model=ImportCatalogResponse)
@@ -256,15 +317,32 @@ def import_inventory(
         if tmp_path:
             os.unlink(tmp_path)
 
+    diagnostics = getattr(
+        parse_result,
+        "import_diagnostics",
+        {
+            "sheets_checked": 1 if filename_lower.endswith(".xlsx") else 0,
+            "sheet_stats": [],
+        },
+    )
+
     return StockImportResponse(
+        filename=filename,
+        selected_sheet=getattr(parse_result, "sheet_name", None),
+        sheets_checked=diagnostics.get("sheets_checked", 0),
+        sheet_stats=diagnostics.get("sheet_stats", []),
         rows_scanned=result.rows_scanned_from_source,
+        sku_found=report.matched_in_db,
         updated=result.updated,
         unchanged=result.unchanged,
         skipped_no_product=result.skipped_no_product,
         skipped_unsupported_brand=result.skipped_unsupported_brand,
+        unsupported_brand_breakdown=_unsupported_brand_breakdown(report),
         skipped_invalid_sku=result.skipped_invalid_sku,
         skipped_invalid_qty=result.skipped_invalid_qty,
         skipped_duplicate=result.skipped_duplicate,
         empty_qty_treated_as_zero=result.empty_qty_treated_as_zero,
+        first_unmatched_skus=_first_values(result.unmatched_skus),
+        first_duplicate_skus=_first_values(sorted(report.duplicate_skus.keys())),
         errors=result.errors,
     )
