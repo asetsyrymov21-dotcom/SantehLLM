@@ -436,10 +436,21 @@ async def _lookup_rag_context(api: APIClient, question: str) -> str:
     blocks: list[str] = []
     for hit in hits[:3]:
         title = hit.get("document_title") or "N/A"
+        metadata = hit.get("metadata") or {}
         text = (hit.get("text") or "").strip()
         if not text:
             continue
-        blocks.append(f"[{title}]\n{text[:1200]}")
+        article = metadata.get("article")
+        source_page = metadata.get("source_page")
+        confidence = metadata.get("confidence")
+        header_parts = [f"[{title}]"]
+        if article:
+            header_parts.append(f"[article={article}]")
+        if source_page:
+            header_parts.append(f"[pdf_page={source_page}]")
+        if confidence:
+            header_parts.append(f"[confidence={confidence}]")
+        blocks.append("\n".join(header_parts) + f"\n{text[:1600]}")
     return "\n---\n".join(blocks)
 
 

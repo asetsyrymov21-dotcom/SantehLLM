@@ -115,6 +115,7 @@ class RagQueryHit(BaseModel):
     document_source: Optional[str] = None
     chunk_index: int
     text: str
+    metadata: dict[str, Any] | None = None
     score: Optional[float] = None
 
 

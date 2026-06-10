@@ -19,9 +19,15 @@ def _client_singleton() -> OpenAI:
     return _client
 
 
-def embed_texts(texts: List[str]) -> List[List[float]]:
+def embed_texts(texts: List[str], *, batch_size: int = 100) -> List[List[float]]:
     """Call OpenAI embedding API and return list of vectors."""
+    if not texts:
+        return []
+
     client = _client_singleton()
-    resp = client.embeddings.create(model=MODEL_NAME, input=texts)
-    vectors = [item.embedding for item in resp.data]
+    vectors: list[list[float]] = []
+    for start in range(0, len(texts), batch_size):
+        batch = texts[start : start + batch_size]
+        resp = client.embeddings.create(model=MODEL_NAME, input=batch)
+        vectors.extend(item.embedding for item in resp.data)
     return vectors

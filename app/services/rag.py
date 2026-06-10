@@ -14,6 +14,7 @@ from app.schemas.utility import (
     RagAskRequest,
     RagAskResponse,
 )
+from app.services.gappo_catalog import format_gappo_card, get_gappo_card
 from app.utils.chunk import normalize_text, chunk_text
 from app.utils.llm import generate_rag_answer
 
@@ -28,14 +29,11 @@ class RagService:
     def query(self, payload: RagQueryRequest) -> RagQueryResponse:
         rows = self.repo.search_chunks(payload.query, limit=payload.limit, offset=payload.offset)
         hits = [
-            RagQueryHit(
-                chunk_id=chunk.id,
-                document_id=chunk.document_id,
-                document_title=doc_title,
-                document_source=doc_source,
-                chunk_index=chunk.chunk_index,
-                text=chunk.text,
-                score=float(distance) * -1.0,  # smaller dist -> higher score
+            self._build_hit(
+                chunk,
+                doc_title=doc_title,
+                doc_source=doc_source,
+                distance=distance,
             )
             for chunk, doc_title, doc_source, distance in rows
         ]
@@ -72,14 +70,11 @@ class RagService:
 
         rows = self.repo.search_chunks(query, limit=request.limit, offset=request.offset)
         hits = [
-            RagQueryHit(
-                chunk_id=chunk.id,
-                document_id=chunk.document_id,
-                document_title=doc_title,
-                document_source=doc_source,
-                chunk_index=chunk.chunk_index,
-                text=chunk.text,
-                score=float(distance) * -1.0,
+            self._build_hit(
+                chunk,
+                doc_title=doc_title,
+                doc_source=doc_source,
+                distance=distance,
             )
             for chunk, doc_title, doc_source, distance in rows
         ]
@@ -96,6 +91,35 @@ class RagService:
         context = self._build_context(merged_blocks)
         answer = generate_rag_answer(query=query, context=context)
         return RagAskResponse(query=query, answer=answer, matches=hits, sources=sources)
+
+    def _build_hit(
+        self,
+        chunk,
+        *,
+        doc_title: str | None,
+        doc_source: str | None,
+        distance,
+    ) -> RagQueryHit:
+        metadata = dict(chunk.metadata_json or {})
+        text = chunk.text
+        article = metadata.get("article")
+        card = get_gappo_card(article)
+        if card:
+            text = format_gappo_card(card)
+            metadata["exact_card_found"] = True
+        elif article:
+            metadata["exact_card_found"] = False
+
+        return RagQueryHit(
+            chunk_id=chunk.id,
+            document_id=chunk.document_id,
+            document_title=doc_title,
+            document_source=doc_source,
+            chunk_index=chunk.chunk_index,
+            text=text,
+            metadata=metadata or None,
+            score=float(distance) * -1.0,  # smaller dist -> higher score
+        )
 
     def _merge_hits(self, hits: list[RagQueryHit]):
         blocks = []
@@ -120,6 +144,7 @@ class RagService:
                     "document_title": current_group[0].document_title,
                     "document_source": current_group[0].document_source,
                     "chunk_indices": chunk_indices,
+                    "metadata": current_group[0].metadata,
                     "text": text,
                 })
                 source = sources_map.get(doc_id)
@@ -168,6 +193,17 @@ class RagService:
             if source:
                 header += f"[Source: {source}]\n"
             header += f"[{chunk_label}]"
+            metadata = b.get("metadata")
+            if metadata:
+                article = metadata.get("article")
+                source_page = metadata.get("source_page")
+                confidence = metadata.get("confidence")
+                if article:
+                    header += f"\n[Article: {article}]"
+                if source_page:
+                    header += f"\n[PDF page: {source_page}]"
+                if confidence:
+                    header += f"\n[Extraction confidence: {confidence}]"
             block_text = f"{header}\n{b['text']}\n"
             if total_len + len(block_text) > MAX_CONTEXT_CHARS:
                 break

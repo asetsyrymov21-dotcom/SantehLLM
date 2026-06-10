@@ -18,6 +18,7 @@ class Settings(BaseModel):
 
     openai_api_key: str = Field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
     openai_chat_model: str = Field(default_factory=lambda: os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini"))
+    gappo_indexes_path: str = Field(default_factory=lambda: os.getenv("GAPPO_INDEXES_PATH", "indexes.json"))
 
     @classmethod
     def load(cls) -> "Settings":
@@ -30,6 +31,7 @@ class Settings(BaseModel):
             telegram_parse_mode=os.getenv("TELEGRAM_PARSE_MODE", cls.model_fields["telegram_parse_mode"].default),
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             openai_chat_model=os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini"),
+            gappo_indexes_path=os.getenv("GAPPO_INDEXES_PATH", "indexes.json"),
         )
 
 
