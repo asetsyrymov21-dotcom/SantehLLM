@@ -18,7 +18,7 @@ class APIClient:
         resp.raise_for_status()
         return resp.json()
 
-    async def query_rag(self, query: str, limit: int = 3) -> dict:
+    async def query_rag(self, query: str, limit: int = 10) -> dict:
         resp = await self.client.post(
             "/rag/query",
             json={"query": query, "limit": limit},

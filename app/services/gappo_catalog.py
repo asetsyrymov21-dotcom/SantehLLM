@@ -17,7 +17,10 @@ def get_gappo_card(article: str | None) -> dict[str, Any] | None:
 def search_gappo_cards(query: str, *, limit: int = 5) -> list[dict[str, Any]]:
     normalized = _normalize(query)
     wants_mixer = any(marker in normalized for marker in ("смес", "кран", "smes", "kran"))
-    wants_kitchen = any(marker in normalized for marker in ("кух", "мойк", "kukh", "kitchen"))
+    wants_kitchen = any(
+        marker in normalized
+        for marker in ("кух", "мойк", "kuh", "kukh", "kyh", "huni", "kitchen")
+    )
     wants_black = any(marker in normalized for marker in ("чер", "chern", "black"))
 
     if not any((wants_mixer, wants_kitchen, wants_black)):

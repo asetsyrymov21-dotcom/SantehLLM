@@ -428,13 +428,13 @@ def _is_catalog_bound_question(question: str) -> bool:
 
 async def _lookup_rag_context(api: APIClient, question: str) -> str:
     try:
-        result = await api.query_rag(question, limit=3)
+        result = await api.query_rag(question, limit=10)
     except Exception:
         return ""
 
     hits = result.get("hits") or []
     blocks: list[str] = []
-    for hit in hits[:3]:
+    for hit in hits[:10]:
         title = hit.get("document_title") or "N/A"
         metadata = hit.get("metadata") or {}
         text = (hit.get("text") or "").strip()
@@ -450,7 +450,7 @@ async def _lookup_rag_context(api: APIClient, question: str) -> str:
             header_parts.append(f"[pdf_page={source_page}]")
         if confidence:
             header_parts.append(f"[confidence={confidence}]")
-        blocks.append("\n".join(header_parts) + f"\n{text[:1600]}")
+        blocks.append("\n".join(header_parts) + f"\n{text[:1400]}")
     return "\n---\n".join(blocks)
 
 
