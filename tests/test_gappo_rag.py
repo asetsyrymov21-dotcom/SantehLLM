@@ -1,6 +1,6 @@
 from scripts.import_gappo_rag import validate_dataset
 from app.repositories.rag_repository import _extract_article
-from app.services.gappo_catalog import format_gappo_card
+from app.services.gappo_catalog import format_gappo_card, search_gappo_cards
 
 
 def test_validate_dataset_allows_duplicate_articles_indexed_once():
@@ -46,3 +46,12 @@ def test_format_gappo_card_warns_for_medium_confidence():
 
 def test_extract_article_from_manager_question():
     assert _extract_article("покажи карточку G2406-43") == "G2406-43"
+
+
+def test_search_gappo_cards_finds_black_kitchen_mixers():
+    cards = search_gappo_cards("Какие кухонные смесители есть в черном цвете?", limit=5)
+
+    assert cards
+    assert all("Смеситель" in card["name"] for card in cards)
+    assert all("кух" in card["name"].lower() for card in cards)
+    assert all("чер" in card["color"].lower() for card in cards)

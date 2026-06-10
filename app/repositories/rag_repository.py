@@ -92,6 +92,27 @@ class RagRepository:
         stmt = select(rag_models.RagChunk).where(rag_models.RagChunk.id.in_(list(ids)))
         return self.session.scalars(stmt).all()
 
+    def get_chunk_rows_by_articles(self, articles: list[str]):
+        if not articles:
+            return []
+
+        stmt = (
+            select(
+                rag_models.RagChunk,
+                rag_models.RagDocument.title,
+                rag_models.RagDocument.source,
+                literal(0.0, type_=Float).label("distance"),
+            )
+            .join(rag_models.RagDocument, rag_models.RagChunk.document_id == rag_models.RagDocument.id)
+            .where(rag_models.RagChunk.metadata_json["article"].as_string().in_(articles))
+        )
+        rows = self.session.execute(stmt).all()
+        order = {article: index for index, article in enumerate(articles)}
+        return sorted(
+            rows,
+            key=lambda row: order.get((row[0].metadata_json or {}).get("article"), len(order)),
+        )
+
 
 def _extract_article(query: str) -> str | None:
     for match in ARTICLE_PATTERN.finditer(query or ""):

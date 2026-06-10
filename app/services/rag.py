@@ -14,7 +14,11 @@ from app.schemas.utility import (
     RagAskRequest,
     RagAskResponse,
 )
-from app.services.gappo_catalog import format_gappo_card, get_gappo_card
+from app.services.gappo_catalog import (
+    format_gappo_card,
+    get_gappo_card,
+    search_gappo_cards,
+)
 from app.utils.chunk import normalize_text, chunk_text
 from app.utils.llm import generate_rag_answer
 
@@ -27,16 +31,11 @@ class RagService:
         self.repo = RagRepository(session)
 
     def query(self, payload: RagQueryRequest) -> RagQueryResponse:
-        rows = self.repo.search_chunks(payload.query, limit=payload.limit, offset=payload.offset)
-        hits = [
-            self._build_hit(
-                chunk,
-                doc_title=doc_title,
-                doc_source=doc_source,
-                distance=distance,
-            )
-            for chunk, doc_title, doc_source, distance in rows
-        ]
+        hits = self._search_hits(
+            payload.query,
+            limit=payload.limit,
+            offset=payload.offset,
+        )
         return RagQueryResponse(total=len(hits), hits=hits)
 
     def ingest_text(self, payload: RagIngestTextRequest) -> RagIngestTextResponse:
@@ -68,16 +67,11 @@ class RagService:
         if not query:
             raise HTTPException(status_code=400, detail="Query must not be empty")
 
-        rows = self.repo.search_chunks(query, limit=request.limit, offset=request.offset)
-        hits = [
-            self._build_hit(
-                chunk,
-                doc_title=doc_title,
-                doc_source=doc_source,
-                distance=distance,
-            )
-            for chunk, doc_title, doc_source, distance in rows
-        ]
+        hits = self._search_hits(
+            query,
+            limit=request.limit,
+            offset=request.offset,
+        )
 
         if not hits:
             return RagAskResponse(
@@ -92,6 +86,46 @@ class RagService:
         answer = generate_rag_answer(query=query, context=context)
         return RagAskResponse(query=query, answer=answer, matches=hits, sources=sources)
 
+    def _search_hits(self, query: str, *, limit: int, offset: int) -> list[RagQueryHit]:
+        structured_hits: list[RagQueryHit] = []
+        if offset == 0:
+            cards = search_gappo_cards(query, limit=limit)
+            articles = [str(card.get("article")) for card in cards if card.get("article")]
+            structured_rows = self.repo.get_chunk_rows_by_articles(articles)
+            structured_hits = [
+                self._build_hit(
+                    chunk,
+                    doc_title=doc_title,
+                    doc_source=doc_source,
+                    distance=distance,
+                    source="structured",
+                )
+                for chunk, doc_title, doc_source, distance in structured_rows[:limit]
+            ]
+            if len(structured_hits) >= limit:
+                return structured_hits
+
+        rows = self.repo.search_chunks(
+            query,
+            limit=limit - len(structured_hits),
+            offset=offset,
+        )
+        structured_articles = {
+            (hit.metadata or {}).get("article") for hit in structured_hits
+        }
+        vector_hits = [
+            self._build_hit(
+                chunk,
+                doc_title=doc_title,
+                doc_source=doc_source,
+                distance=distance,
+                source="vector",
+            )
+            for chunk, doc_title, doc_source, distance in rows
+            if (chunk.metadata_json or {}).get("article") not in structured_articles
+        ]
+        return [*structured_hits, *vector_hits][:limit]
+
     def _build_hit(
         self,
         chunk,
@@ -99,6 +133,7 @@ class RagService:
         doc_title: str | None,
         doc_source: str | None,
         distance,
+        source: str = "vector",
     ) -> RagQueryHit:
         metadata = dict(chunk.metadata_json or {})
         text = chunk.text
@@ -118,7 +153,7 @@ class RagService:
             chunk_index=chunk.chunk_index,
             text=text,
             metadata=metadata or None,
-            score=float(distance) * -1.0,  # smaller dist -> higher score
+            score=1.0 if source == "structured" else float(distance) * -1.0,
         )
 
     def _merge_hits(self, hits: list[RagQueryHit]):

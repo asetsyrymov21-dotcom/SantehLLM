@@ -14,6 +14,47 @@ def get_gappo_card(article: str | None) -> dict[str, Any] | None:
     return _load_by_article().get(article)
 
 
+def search_gappo_cards(query: str, *, limit: int = 5) -> list[dict[str, Any]]:
+    normalized = _normalize(query)
+    wants_mixer = any(marker in normalized for marker in ("смес", "кран", "smes", "kran"))
+    wants_kitchen = any(marker in normalized for marker in ("кух", "мойк", "kukh", "kitchen"))
+    wants_black = any(marker in normalized for marker in ("чер", "chern", "black"))
+
+    if not any((wants_mixer, wants_kitchen, wants_black)):
+        return []
+
+    matches: list[tuple[int, int, str, dict[str, Any]]] = []
+    for article, card in _load_by_article().items():
+        name = _normalize(card.get("name") or "")
+        category = _normalize(card.get("category") or "")
+        color = _normalize(card.get("color") or "")
+
+        if wants_mixer and "смес" not in name:
+            continue
+        if wants_kitchen and "кух" not in name:
+            continue
+        if wants_black and "чер" not in color:
+            continue
+
+        score = 0
+        if wants_mixer and "смес" in name:
+            score += 5
+        if wants_kitchen and "кух" in name:
+            score += 5
+        if wants_black and "чер" in color:
+            score += 5
+        if "смес" in category:
+            score += 2
+        if card.get("quality", {}).get("confidence") == "high":
+            score += 1
+
+        page = int((card.get("source") or {}).get("page") or 99999)
+        matches.append((score, page, article, card))
+
+    matches.sort(key=lambda item: (-item[0], item[1], item[2]))
+    return [card for _, _, _, card in matches[:limit]]
+
+
 def format_gappo_card(card: dict[str, Any]) -> str:
     lines = [
         f"Точная карточка GAPPO: {card.get('article') or 'N/A'} — {card.get('name') or 'N/A'}",
@@ -55,6 +96,10 @@ def format_gappo_card(card: dict[str, Any]) -> str:
             lines.append("Предупреждения: " + "; ".join(str(issue) for issue in issues))
 
     return "\n".join(lines)
+
+
+def _normalize(text: str) -> str:
+    return " ".join((text or "").lower().replace("ё", "е").split())
 
 
 @lru_cache(maxsize=1)
