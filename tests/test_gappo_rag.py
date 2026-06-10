@@ -1,4 +1,5 @@
 from scripts.import_gappo_rag import validate_dataset
+from app.repositories.rag_repository import _extract_article
 from app.services.gappo_catalog import format_gappo_card
 
 
@@ -41,3 +42,7 @@ def test_format_gappo_card_warns_for_medium_confidence():
     assert "Размер упаковки: 675x420x130mm" in text
     assert "Фасовка: 1/3PCS" in text
     assert "Данные требуют проверки по странице PDF: 97." in text
+
+
+def test_extract_article_from_manager_question():
+    assert _extract_article("покажи карточку G2406-43") == "G2406-43"
