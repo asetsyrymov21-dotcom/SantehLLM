@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import Float, select
 from sqlalchemy.orm import Session
 
 from app.db import rag_models
@@ -44,7 +44,7 @@ class RagRepository:
 
     def search_chunks(self, query: str, *, limit: int = 5, offset: int = 0):
         qvec = embed_texts([query])[0]
-        distance = rag_models.RagChunk.embedding.op("<->")(qvec)
+        distance = rag_models.RagChunk.embedding.op("<->", return_type=Float)(qvec)
         stmt = (
             select(
                 rag_models.RagChunk,
