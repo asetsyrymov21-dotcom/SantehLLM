@@ -1,6 +1,7 @@
 from scripts.import_gappo_rag import validate_dataset
 from app.repositories.rag_repository import _extract_article
 from app.services.gappo_catalog import format_gappo_card, search_gappo_cards
+from app.utils.llm import generate_assistant_draft_answer
 
 
 def test_validate_dataset_allows_duplicate_articles_indexed_once():
@@ -55,3 +56,11 @@ def test_search_gappo_cards_finds_black_kitchen_mixers():
     assert all("Смеситель" in card["name"] for card in cards)
     assert all("кух" in card["name"].lower() for card in cards)
     assert all("чер" in card["color"].lower() for card in cards)
+
+
+def test_assistant_prompt_allows_rag_cards_when_product_search_is_empty():
+    constants = generate_assistant_draft_answer.__code__.co_consts
+    prompt_text = "\n".join(str(value) for value in constants if isinstance(value, str))
+
+    assert "PRODUCT SEARCH RESULTS пустой, но в RAG CONTEXT есть точные" in prompt_text
+    assert "считай эти карточки найденными товарами компании" in prompt_text
