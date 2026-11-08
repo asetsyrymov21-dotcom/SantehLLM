@@ -53,3 +53,19 @@ test_write.tmp
 
 # Docker volumes
 postgres_data/
+
+# Secret prevention
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.key
+*.p12
+*.pfx
+secrets/
+credentials*.json
+service-account*.json
+*.bundle
+.security-workspaces/
+.runtime/
