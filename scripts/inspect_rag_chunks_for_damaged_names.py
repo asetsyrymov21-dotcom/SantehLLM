@@ -41,7 +41,7 @@ def get_db_connection():
         port=os.getenv("POSTGRES_PORT", "5432"),
         dbname=os.getenv("POSTGRES_DB", "santeh"),
         user=os.getenv("POSTGRES_USER", "postgres"),
-        password=os.getenv("POSTGRES_PASSWORD", "postgres"),
+        password=os.environ["POSTGRES_PASSWORD"],
         cursor_factory=RealDictCursor,
     )
 
