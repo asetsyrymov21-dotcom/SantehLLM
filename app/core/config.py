@@ -11,7 +11,7 @@ class Settings(BaseModel):
     debug: bool = Field(default=False)
     api_v1_prefix: str = Field(default="/api/v1")
 
-    database_url: str = Field(default="postgresql+psycopg2://postgres:postgres@db:5432/santeh")
+    database_url: str = Field(default="")
 
     telegram_bot_token: str = Field(default="CHANGE_ME")
     telegram_parse_mode: str = Field(default="HTML")
