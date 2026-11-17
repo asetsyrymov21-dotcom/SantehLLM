@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql+psycopg2://postgres@db:5432/santeh
 
     steps:
       - name: Checkout
