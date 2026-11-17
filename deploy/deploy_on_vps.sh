@@ -16,7 +16,7 @@ git reset --hard "origin/$BRANCH"
 
 if [ ! -f ".env" ]; then
   echo "ERROR: .env is missing on VPS at $APP_DIR/.env"
-  echo "Create it from .env.example and add production secrets."
+  echo "Create .env locally on this VPS with the required production secrets; never commit it."
   exit 1
 fi
 
